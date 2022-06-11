@@ -1,9 +1,17 @@
 # MER
 
-## Writings:
+## current challenges
+* Emotions are subjective and difficult to quantify
 
-* Possible research questions:
-  * Create a new data
+## Possible research questions:
+* Create a new music dataset and tested with past researched papers' models, and compare them
+* Music generation: Musical fusion and transform using generative model
+  * Fusing music using unsupervised learning: https://ieeexplore.ieee.org/abstract/document/8215561
+  * Fusing using VAE: https://ieeexplore.ieee.org/abstract/document/8215561
+* Progressive GAN-like method for music generation algorithm
+* MER: Create optimized deep learning algorithm under dataset constraints
+
+## Writings:
 
 * Acording to the MER literature survey [10]:
   ![1.png](docs/1.png)
