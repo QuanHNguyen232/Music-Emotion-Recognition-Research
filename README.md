@@ -3,13 +3,26 @@
 ## current challenges
 * Emotions are subjective and difficult to quantify
 
-## Possible research questions:
+## Possible research questions (scoping):
 * Create a new music dataset and tested with past researched papers' models, and compare them
+* MER: Create optimized deep learning algorithm under dataset constraints
+* Are there new representation choice?
+* are new new music emotion type conveyed
+* Relationship? nice
+  * Is there a relationship between the two representation? second
+  * Induced and perceived emtion relationship? first
+    * The common elements? Will they have similar songs in both dataset type? does dataset have both induced and perceived emotion?
+    * Can we learn a model provide label for the other knowing one emotional type.
+    * music notation representation? choose one
+  * See all rela
+  * Existing dataset: analyze their dataset a little more
+
+
 * Music generation: Musical fusion and transform using generative model
   * Fusing music using unsupervised learning: https://ieeexplore.ieee.org/abstract/document/8215561
   * Fusing using VAE: https://ieeexplore.ieee.org/abstract/document/8215561
 * Progressive GAN-like method for music generation algorithm
-* MER: Create optimized deep learning algorithm under dataset constraints
+
 
 ## Writings:
 
