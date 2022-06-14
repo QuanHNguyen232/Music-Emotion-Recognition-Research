@@ -1,9 +1,23 @@
 # MER
 
-## current challenges
+## June 14, 2022
+
+### Fruits for thoughts
+
+* There are multiple MER datasets, however, none of the dataset has both emotion label type (induced and perceived). Therefore, one way for us approaching this is to train a model for each dataset (depending on which emotional label type), and use the models which were trained using one emotional label type to infer on the dataset with other emotional label type. Only then, we can work on statistical testing to see if there is any correlation between induced and perceived emotion.
+
+* Additionally, we also can integrate the **context and personalities factors** in the process of user listening to music to see if there is any change in the induced emotion, and how does it correlate with the perceived emotion of the song. For example, when my mood is currently sad, when I listen to a happily perceived song, my induced emotion can vary based on my personality, if I am an optimistic person, I will feel the same way as the song is perceived, but otherwise, I may feel even more depressed.
+
+* 
+
+
+
+## Past
+
+### current challenges
 * Emotions are subjective and difficult to quantify
 
-## Possible research questions (scoping):
+### Possible research questions (scoping):
 * Create a new music dataset and tested with past researched papers' models, and compare them
 * MER: Create optimized deep learning algorithm under dataset constraints
 * Are there new representation choice?
@@ -24,7 +38,7 @@
 * Progressive GAN-like method for music generation algorithm
 
 
-## Writings:
+### Writings:
 
 * Acording to the MER literature survey [10]:
   ![1.png](docs/1.png)
