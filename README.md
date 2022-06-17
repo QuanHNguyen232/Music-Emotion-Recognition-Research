@@ -1,5 +1,27 @@
 # MER
 
+## June 17, 2022
+
+## Research questions:
+* Another question that can be asked (for research in induced emotion in particular) is to decompose the music into multiple instrument, and build a model to recognize the music emotion from there using unsupervised learning (eg. in a particular point or degree of emotion, there is this combination of instrumental energy and lyrics) => Using K nearest neighbor, or some other unsupervised learning algorithms.
+
+## June 15, 2022
+
+### Fruits for thoughts
+
+* Link to most music emotion dataset: https://github.com/juansgomez87/datasets_emotion. Here is the downloadable datasets:
+  * **PMEmo dataset** (Induced - Dimensional) ($5.00 price on ACM with student member): The dataset's label is dimensional, it also include `Corresponding EDA physiological signals`. This dataset have labels in pop song music, which include multiple instruments and vocal(s). This dataset also has electrodermal activity dynamically through the song, also has multiple acoustic features for each song.
+  * CAL500: western popular music. Categorical (174 labels). Perceived. 2007. 500 full songs.
+  * Soundtracks: Film soundtracks. categorical and dimensional (mean rating of valence,energy,tension,anger,fear,happy,sad,tender). Perceived.
+  * Emotify: mainly four genres (rock, classical, pop and electronic) music. Geneva Emotional Music Scales (Nine categories (amazement, solemnity, tenderness, nostalgia, calmness, power, joyful activation, tension, sadness)). Induced.
+  * 4Q Emotion Dataset: 30-second audio clips for most songs. Mostly popularly consumed music. categorical (Q1 (A+V+), Q2 (A+V-), Q3(A-V-), Q4 (A-V+)). Perceived.
+  * **DEAM/MediaVal**: 2058 excerpts (45s long). Dimensional. Perceived. Includes rock, pop, soul, blues, electronic, classical, hip-hop, international, experimental, folk, jazz, country and pop genres.
+  * Jamendo Mood and Theme Subset: open dataset for music auto-tagging. 87 genre tags. Categorical: 56 mood/theme tags. Perceived
+  * VGMIDI: midi form. 200 MIDI labelled piano pieces (video game soundtracks). dimensional. Perceived.
+  * CCMED-WCMED: Western and Chinese classical music recordings (400 excerpts each). dimensional (not time-continuous) (range [-1,1]). Perceived.
+  * DEAP dataset (Induced - Dimensional): Use electroencephalogram to record people's emotion with brain activity when they are listening to music. Require permission.
+* EDA (often also referred to as galvanic skin response, or GSR) reflects activity of the sympathetic nervous system – the activity of which is dependent on physiological and emotional activation.
+
 ## June 14, 2022
 
 ### Fruits for thoughts
@@ -7,10 +29,6 @@
 * There are multiple MER datasets, however, none of the dataset has both emotion label type (induced and perceived). Therefore, one way for us approaching this is to train a model for each dataset (depending on which emotional label type), and use the models which were trained using one emotional label type to infer on the dataset with other emotional label type. Only then, we can work on statistical testing to see if there is any correlation between induced and perceived emotion.
 
 * Additionally, we also can integrate the **context and personalities factors** in the process of user listening to music to see if there is any change in the induced emotion, and how does it correlate with the perceived emotion of the song. For example, when my mood is currently sad, when I listen to a happily perceived song, my induced emotion can vary based on my personality, if I am an optimistic person, I will feel the same way as the song is perceived, but otherwise, I may feel even more depressed.
-
-* 
-
-
 
 ## Past
 
