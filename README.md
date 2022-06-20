@@ -1,9 +1,29 @@
 # MER
 
+## June 20, 2022
+
+* Audio Source Separation is the process of separating a mixture (e.g. a pop band recording) into isolated sounds from individual sources (e.g. just the lead vocals).
+
+### Journal Dairies for MER algorithms
+* [audioLime paper]:
+  * This paper talk about using audio source separation to analyze music. This paper focus on interpretability for CNN in music spectrogram feature.
+  * source-separation based explainer
+* [TRACING BACK MUSIC EMOTION PREDICTIONS TO SOUND SOURCES AND INTUITIVE PERCEPTUAL QUALITIES]: 
+  *  two-level system: 
+    * First, tracing the raw music back to the most relevant mid-level features
+    * Second, explain the intermediate mid-level layer via audio sources.
+      * Explaining via Audio Sources: audioLIME
+      * Explaining via Mid-level Perceptual Features. low-level musical building blocks such as timbre, beat structure, harmony, etc.
+  * First, we obtain the mid-level explanation of an emotion by computing the effects. The larger the effect of a mid-level feature, the larger is the contribution of that feature to the emotion prediction. Next, we compute the audioLIME explanations for the mid-level feature with the largest effect (we can in principle compute audioLIME explanations for all features to obtain a more diverse explanation, depending on the application). Given these two explanations, we can describe a prediction as being arrived at by the model due to the explanatory mid-level feature, which is in turn most influenced by the input component given by audioLIME.
+* [Using multiple source in evaluation of music emotion](./docs/MUSICMOODDETECTIONBASEDONAUDIOANDLYRICSWITHDEEPNEURALNET.pdf)
+* [WAVENET: A GENERATIVE MODEL FOR RAW AUDIO]:
+  * Causal Convolution instead of RNN: This is because it can take very long sequence.
+
+
 ## June 17, 2022
 
 ## Research questions:
-* Another question that can be asked (for research in induced emotion in particular) is to decompose the music into multiple instrument, and build a model to recognize the music emotion from there using unsupervised learning (eg. in a particular point or degree of emotion, there is this combination of instrumental energy and lyrics) => Using K nearest neighbor, or some other unsupervised learning algorithms.
+* Another question that can be asked (for research in induced emotion in particular) is to decompose the music into multiple instrument, and build a model to recognize the music emotion from there using unsupervised learning (eg. in a particular point or degree of emotion, there is this combination of instrumental energy and lyrics) => Using K nearest neighbor, or some other unsupervised learning algorithms. (Wrong concept)
 
 ## June 15, 2022
 
