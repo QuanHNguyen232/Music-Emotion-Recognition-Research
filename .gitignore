@@ -1,1 +1,9 @@
-data/
+.vscode
+.idea
+venv
+
+data/**
+!data/.gitkeep
+
+models/**
+!models/.gitkeep
