@@ -23,3 +23,6 @@ This is a research about music emotion recognition conducted by Alex, Quan, and 
   * `/mss/setup.py`: mss setup file
 * `/notebooks/`: contains notebook files for easy experiments.
 * `/old/`: old experiment code base files, used for reference.
+
+## How to test and experiment
+`(to be implemented)`
