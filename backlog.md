@@ -1,5 +1,12 @@
 # MER
 
+## July 15, 2022:
+
+* Rick: I think the training data provides some good insights: https://sigsep.github.io/datasets/musdb.html . MUSDB simply splits the audio into just 4 tracks: vocal, bass, drum, and "other."  So, training Wav-U-Net on this would mean everything else in the song is "other," and the PMEmo examples have more instruments and timbres than drum, vocal, and bass: https://github.com/HuiZhangDB/PMEmo .  We can think about what to do, but likely we either (1) allow this large "other" and see what happens, (2) train our own version with many more instruments, or (3) only run this version Wav-U-Net on songs in emotion datasets that have mostly vocal, drum, and bass to reduce what appears in "other."
+
+* Alex: I think we can train the wave u net model on a source separation dataset that have their music data most similar to the music emotion dataset (e.g, having similar range of instruments). Here is the link to some music source separation datasets: https://source-separation.github.io/tutorial/data/datasets.html. For example, I saw that the Slakh2100 dataset is has a wide range of instruments (bass, brass, guitar, strings, piano, etc.).
+Additionally, one way to predict the emotion separately is to predict the emotion of the lyric. I tried to separate the vocal and the accompaniments wave, we can used the wave to to train a speech recognition model (since we have lyrics label in some music emotion datasets, e.g: PMEmo dataset). Then we can use some natural language processing model (e.g tf-idf or pretrained deep learning model) to infer the emotion of the lyrics. The attachments below are the vocal and accompaniments separated music.
+
 ## June 26, 2022: Meeting
 
 * There are multiple machine learning feature for time-series. (Driving paper)
