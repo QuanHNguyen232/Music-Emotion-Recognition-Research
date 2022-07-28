@@ -1,5 +1,10 @@
 # MER
 
+## July 28, 2022:
+* Feature extraction techniques:
+  * Mel-frequency cepstral coefficients (MFCCs)
+  * Discrete Wavelet Transform (DWT).
+
 ## July 15, 2022:
 
 * Rick: I think the training data provides some good insights: https://sigsep.github.io/datasets/musdb.html . MUSDB simply splits the audio into just 4 tracks: vocal, bass, drum, and "other."  So, training Wav-U-Net on this would mean everything else in the song is "other," and the PMEmo examples have more instruments and timbres than drum, vocal, and bass: https://github.com/HuiZhangDB/PMEmo .  We can think about what to do, but likely we either (1) allow this large "other" and see what happens, (2) train our own version with many more instruments, or (3) only run this version Wav-U-Net on songs in emotion datasets that have mostly vocal, drum, and bass to reduce what appears in "other."
