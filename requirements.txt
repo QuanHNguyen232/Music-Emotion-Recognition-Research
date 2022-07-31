@@ -1,5 +1,2 @@
--e .
-
-dotenv==0.0.5
-lxml==4.9.0
-mechanize==0.4.8
+-e "./mer"
+-e "./mss"

@@ -7,3 +7,6 @@ data/**
 
 models/**
 !models/.gitkeep
+
+**__pycache__
+**.egg-info
