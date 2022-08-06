@@ -47,7 +47,7 @@ from mer.utils.const import GLOBAL_CONFIG
 # Because the generator and some classes are based on the
 # GLOBAL_CONFIG, we have to import them after we set the config
 from mer.utils.utils import load_metadata, split_train_test, \
-  preprocess_waveforms, get_spectrogram
+  preprocess_waveforms, get_spectrogram, plot_and_play
 from mer.model import get_rnn_model
 
 from tensorflow.python.keras import layers as L
@@ -187,21 +187,12 @@ test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
 # test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
 test_batch_iter = iter(test_batch_dataset)
 
-
 # %%
-
 # test data gen
 
 _in, _out = next(test_batch_iter)
-
-# %%
-
-_in.shape
-
-# %%
-
-_out.shape
-
+print(_in.shape)
+print(_out.shape)
 
 # %%
 
@@ -232,8 +223,8 @@ trainer = Trainer(model,
   train_batch_iter,
   test_batch_iter,
   optimizer,
-  simple_mae_loss,
-  epochs=2,
+  simple_mse_loss,
+  epochs=3,
   steps_per_epoch=100, # 1800 // 16
   valid_step=20,
   history_path=history_path,
@@ -244,3 +235,82 @@ trainer = Trainer(model,
 history = trainer.train()
 
 # %%
+
+# Statistics
+
+import matplotlib.pyplot as plt
+# Plot
+with open(history_path, "rb") as f:
+  [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
+
+
+e_loss = [k[0] for k in epochs_loss]
+
+e_all_loss = []
+
+id = 0
+time_val = []
+for epoch in epochs_loss:
+  for step in epoch:
+    e_all_loss.append(step.numpy())
+    id += 1
+  time_val.append(id)
+
+# %%
+
+plt.plot(np.arange(0, len(e_all_loss), 1), e_all_loss, label = "train loss")
+plt.plot(time_val, epochs_val_loss, label = "val loss")
+
+# plt.plot(np.arange(1,len(e_loss)+ 1), e_loss, label = "train loss")
+# plt.plot(np.arange(1,len(epochs_val_loss)+ 1), epochs_val_loss, label = "val loss")
+plt.xlabel("Step")
+plt.ylabel("Loss")
+plt.legend()
+plt.show()
+
+# %%
+
+def evaluate(df_pointer, model, loss_func, play=False):
+  row = test_df.loc[df_pointer]
+  song_id = row["musicId"]
+  arousal_mean = float(row["Arousal(mean)"])
+  valence_mean = float(row["Valence(mean)"])
+  label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+  print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
+  song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+  audio_file = tf.io.read_file(song_path)
+  waveforms, _ = tf.audio.decode_wav(contents=audio_file)
+  waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+  spectrograms = None
+  # Loop through each channel
+  for i in range(waveforms.shape[-1]):
+    # Shape (timestep, frequency, 1)
+    spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
+    if spectrograms == None:
+      spectrograms = spectrogram
+    else:
+      spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
+
+  spectrograms = spectrograms[tf.newaxis, ...]
+
+  ## Eval
+  y_pred = model(spectrograms, training=False)[0]
+
+  print(y_pred.shape)
+
+  print(f"Predicted y_pred value: Valence: {y_pred[0]}, Arousal: {y_pred[1]}")
+
+  loss = loss_func(label[tf.newaxis, ...], y_pred)
+  print(f"Loss: {loss}")
+
+  if play:
+    plot_and_play(waveforms, 0, 40, 0)
+
+i = 0
+
+# %%
+
+i += 1
+evaluate(i, model, simple_mae_loss, play=False)
+
+

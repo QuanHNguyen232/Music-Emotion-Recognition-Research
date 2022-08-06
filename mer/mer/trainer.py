@@ -41,16 +41,19 @@ class Trainer():
     self.weights_path = weights_path
     self.save_history = save_history
   
-  def train_step(self, batch_x, batch_label, model, loss_function, optimizer):
+  def train_step(self, batch_x, batch_label, model, loss_function, optimizer, verbose: bool=False):
     with tf.device("/GPU:0"):
       with tf.GradientTape() as tape:
         logits = model(batch_x, training=True)
         loss = loss_function(batch_label, logits)
+        if verbose:
+          print(f"[Trainer][train_step()] logits shape: {logits.shape}")
+          print(f"[Trainer][train_step()] batch_label shape: {batch_label.shape}")
       grads = tape.gradient(loss, model.trainable_weights)
       optimizer.apply_gradients(zip(grads, model.trainable_weights))
     return loss
 
-  def train(self) -> List[np.ndarray]:
+  def train(self, verbose: bool=False) -> List[np.ndarray]:
     if self.history_path != None and os.path.exists(self.history_path):
       # Sometimes, we have not created the files
       with open(self.history_path, "rb") as f:
@@ -80,10 +83,8 @@ class Trainer():
           # except:
           #   print()
           #   continue
-          batch = next(self.training_batch_iter)
-          batch_x = batch[0]
-          batch_label = batch[1]
-          loss = self.train_step(batch_x, batch_label, self.model, self.loss_function, self.optimizer)
+          batch_x, batch_label = next(self.training_batch_iter)
+          loss = self.train_step(batch_x, batch_label, self.model, self.loss_function, self.optimizer, verbose=verbose)
           print(f"Epoch {epoch + 1} - Step {step_pointer + 1} - Loss: {loss}")
           losses.append(loss)
 
