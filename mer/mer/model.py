@@ -21,8 +21,7 @@ def get_rnn_model(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CON
 
   if verbose:
     model.summary()
-  model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["acc"])
-
+  
   return model
 
   
