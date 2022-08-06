@@ -48,12 +48,12 @@ GLOBAL_CONFIG: Munch = None
 def setup_global_config(config: Munch, verbose: bool=False) -> None:
   global GLOBAL_CONFIG
   GLOBAL_CONFIG = config
-  if verbose:
-    print(GLOBAL_CONFIG)
-  
-  global GLOBAL_CONFIG
-  ## Setup
+
+  # Setup
   GLOBAL_CONFIG.WAVE_ARRAY_LENGTH = GLOBAL_CONFIG.DEFAULT_FREQ * GLOBAL_CONFIG.DEFAULT_TIME
   GLOBAL_CONFIG.WINDOW_SIZE = GLOBAL_CONFIG.WINDOW_TIME * GLOBAL_CONFIG.DEFAULT_FREQ
 
+  if verbose:
+    print(GLOBAL_CONFIG)
+  
 ################### End of Workaround #############

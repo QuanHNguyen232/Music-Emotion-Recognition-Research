@@ -1,0 +1,21 @@
+{
+  "DEFAULT_FREQ": 44100,
+  "DEFAULT_TIME": 45,
+  "WINDOW_TIME": 5,
+  "TRAIN_RATIO": 0.8,
+  "BATCH_SIZE": 16,
+  "FREQUENCY_LENGTH": 129,
+  "N_CHANNEL": 2,
+  "SPECTROGRAM_TIME_LENGTH": 15502,
+  "SPECTROGRAM_HALF_SECOND_LENGTH": 171,
+  "SPECTROGRAM_5_SECOND_LENGTH": 1721,
+  "MFCCS_TIME_LENGTH": 3876,
+  "LEARNING_RATE": 1e-4,
+  "SOUND_EXTENSION": ".wav",
+  "MIN_TIME_END_POINT": 15,
+  "AUDIO_FOLDER": "../data/PMEmo/PMEmo2019/PMEmo2019/chorus_wav",
+  "ANNOTATION_SONG_LEVEL": [
+    "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations.csv",
+    "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations_std.csv"
+  ]
+}

@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import sounddevice as sd
 
-from .const import *
+from .const import GLOBAL_CONFIG
 
 def get_spectrogram(waveform, input_len=44100):
   """ Check out https://www.tensorflow.org/io/tutorials/audio
@@ -60,7 +60,27 @@ def plot_spectrogram(spectrogram, ax):
   Y = range(height)
   ax.pcolormesh(X, Y, log_spec)
 
-def load_metadata(csv_folder):
+# def load_metadata(csv_folder):
+#   """ Pandas load multiple csv file and concat them into one df.
+
+#   Args:
+#       csv_folder (str): Path to the csv folder
+
+#   Returns:
+#       pd.DataFrame: The concatnated one!
+#   """
+#   global_df = pd.DataFrame()
+#   for i, fname in enumerate(os.listdir(csv_folder)):
+#     # headers: song_id, valence_mean, valence_std, arousal_mean, arousal_std
+#     df = pd.read_csv(os.path.join(csv_folder, fname), sep=r"\s*,\s*", engine="python")
+#     global_df = pd.concat([global_df, df], axis=0)
+  
+#   # Reset the index
+#   global_df = global_df.reset_index(drop=True)
+
+#   return global_df
+
+def load_metadata(csv_list, join_key: str="musicId"):
   """ Pandas load multiple csv file and concat them into one df.
 
   Args:
@@ -69,11 +89,15 @@ def load_metadata(csv_folder):
   Returns:
       pd.DataFrame: The concatnated one!
   """
-  global_df = pd.DataFrame()
-  for i, fname in enumerate(os.listdir(csv_folder)):
-    # headers: song_id, valence_mean, valence_std, arousal_mean, arousal_std
-    df = pd.read_csv(os.path.join(csv_folder, fname), sep=r"\s*,\s*", engine="python")
-    global_df = pd.concat([global_df, df], axis=0)
+  # headers: musicId, Arousal(mean), Valence(mean), Arousal(std), Valence(std)
+  global_df = None
+  for i, fname in enumerate(csv_list):
+    df = pd.read_csv(fname, sep=r"\s*,\s*", engine="python")
+    # global_df = pd.concat([global_df, df], axis=1)
+    if global_df is None:
+      global_df = df
+    else:
+      global_df = global_df.join(df.set_index(join_key), on=join_key, how="outer")
   
   # Reset the index
   global_df = global_df.reset_index(drop=True)

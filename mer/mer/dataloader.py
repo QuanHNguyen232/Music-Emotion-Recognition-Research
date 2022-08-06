@@ -8,3 +8,9 @@
 
 Example dataloader
 """
+
+import tensorflow as tf
+import os
+
+
+from .utils.config import GLOBAL_CONFIG

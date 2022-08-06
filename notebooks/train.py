@@ -13,14 +13,14 @@ Example notebook file
 
 import tensorflow as tf
 
-from mss.trainer.trainer import TrainerWithDistMatrix
-
 print(f"Tensorflow version: {tf.__version__}")
 print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 import argparse
+import os
+import numpy as np
 
-from mss.utils.config import get_config_from_json, setup_global_config
+from mer.utils.const import get_config_from_json, setup_global_config
 
 gpus = tf.config.list_physical_devices('GPU')
 
@@ -36,108 +36,211 @@ if gpus:
     print(e)
 
 # Argument parsing
-config_path = "../configs/training_config/training_config_4.json"
-model_config_path = "../configs/model_config/simplenet.json"
-
+config_path = "../configs/config.json"
 config = get_config_from_json(config_path)
-model_config = get_config_from_json(model_config_path)
 
 ##### Workaround to setup global config ############
-setup_global_config(config)
-from mss.utils.config import GLOBAL_CONFIG
+setup_global_config(config, verbose=True)
+from mer.utils.const import GLOBAL_CONFIG
 ##### End of Workaround #####
 
 # Because the generator and some classes are based on the
 # GLOBAL_CONFIG, we have to import them after we set the config
-from mss.trainer.trainer import Trainer
-from mss.model.model_builder import build_unet_model
-from mss.trainer.optimizer import get_optimizer_by_config
-from mss.dataloader.dataloader import train_generator, test_generator
+from mer.utils.utils import load_metadata, split_train_test, \
+  preprocess_waveforms, get_spectrogram
+from mer.model import get_rnn_model
 
-# Data loader
-train_dataset = None
-if "sl" in GLOBAL_CONFIG.loss.name:
-  train_dataset = tf.data.Dataset.from_generator(
-    train_generator,
-    output_signature=(
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.channel), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32)
-    )
+from tensorflow.python.keras import layers as L
+from tensorflow.python.keras.models import Model
+
+# %%%
+
+
+filenames = tf.io.gfile.glob(str(GLOBAL_CONFIG.AUDIO_FOLDER) + '/*')
+# Process with average annotation per song. 
+
+df = load_metadata(GLOBAL_CONFIG.ANNOTATION_SONG_LEVEL)
+
+df
+
+# %%
+
+train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
+
+def train_datagen():
+  """ Predicting valence mean and arousal mean
+  """
+  pointer = 0
+  while True:
+    # Reset pointer
+    if pointer >= len(train_df):
+      pointer = 0
+
+    row = train_df.loc[pointer]
+    song_id = row["musicId"]
+    arousal_mean = float(row["Arousal(mean)"])
+    valence_mean = float(row["Valence(mean)"])
+    
+    # TODO: HOw are we gonna integrate valence and arousal std?
+    # valence_std = float(row["Arousal(std)"])
+    # arousal_std = float(row["Valence(std)"])
+    
+    label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+    song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+    audio_file = tf.io.read_file(song_path)
+    waveforms, _ = tf.audio.decode_wav(contents=audio_file)
+    waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+    # print(waveforms.shape)
+
+    # Work on building spectrogram
+    # Shape (timestep, frequency, n_channel)
+    spectrograms = None
+    # Loop through each channel
+    for i in range(waveforms.shape[-1]):
+      # Shape (timestep, frequency, 1)
+      spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
+      # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
+      if spectrograms == None:
+        spectrograms = spectrogram
+      else:
+        spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
+    pointer += 1
+
+    padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
+    # spectrograms = spectrograms[tf.newaxis, ...]
+    # some spectrogram are not the same shape
+    padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
+    
+    yield (tf.convert_to_tensor(padded_spectrogram), label)
+
+def test_datagen():
+  """ Predicting valence mean and arousal mean
+  """
+  pointer = 0
+  while True:
+    # Reset pointer
+    if pointer >= len(test_df):
+      pointer = 0
+
+    row = test_df.loc[pointer]
+    song_id = row["musicId"]
+    valence_mean = float(row["Valence(mean)"])
+    arousal_mean = float(row["Arousal(mean)"])
+    label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+    song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+    audio_file = tf.io.read_file(song_path)
+    waveforms, _ = tf.audio.decode_wav(contents=audio_file)
+    waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+    # print(waveforms.shape)
+
+    # Work on building spectrogram
+    # Shape (timestep, frequency, n_channel)
+    spectrograms = None
+    # Loop through each channel
+    for i in range(waveforms.shape[-1]):
+      # Shape (timestep, frequency, 1)
+      spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
+      # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
+      if spectrograms == None:
+        spectrograms = spectrogram
+      else:
+        spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
+    pointer += 1
+
+    padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
+    # spectrograms = spectrograms[tf.newaxis, ...]
+    # some spectrogram are not the same shape
+    padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
+    
+    yield (tf.convert_to_tensor(padded_spectrogram), label)
+
+train_dataset = tf.data.Dataset.from_generator(
+  train_datagen,
+  output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
+    tf.TensorSpec(shape=(2), dtype=tf.float32)
   )
-else:
-  train_dataset = tf.data.Dataset.from_generator(
-    train_generator,
-    output_signature=(
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.channel), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32),
-    )
-  )
-train_batch_dataset = train_dataset.batch(GLOBAL_CONFIG.batch_size)
+)
+train_batch_dataset = train_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+# train_batch_dataset = train_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
 train_batch_iter = iter(train_batch_dataset)
 
-test_dataset = None
-if "sl" in GLOBAL_CONFIG.loss.name:
-  test_dataset = tf.data.Dataset.from_generator(
-    test_generator,
-    output_signature=(
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.channel), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32)
-    )
+
+# Comment out to decide to create a normalization layer.
+# NOTE: this is every time consuming because it looks at all the data, only 
+# use this at the first time.
+# NOTE: Normally, we create this layer once, save it somewhere to reuse in
+# every other model.
+#
+# norm_layer = L.Normalization()
+# norm_layer.adapt(data=train_dataset.map(map_func=lambda spec, label: spec))
+#
+
+test_dataset = tf.data.Dataset.from_generator(
+  test_datagen,
+  output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
+    tf.TensorSpec(shape=(2, ), dtype=tf.float32)
   )
-else:
-  test_dataset = tf.data.Dataset.from_generator(
-    test_generator,
-    output_signature=(
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.channel), dtype=tf.float32),
-      tf.TensorSpec(shape=(GLOBAL_CONFIG.image_size.height, GLOBAL_CONFIG.image_size.width, GLOBAL_CONFIG.n_class), dtype=tf.float32)
-    )
-  )
-test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.batch_size)
+)
+test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+# test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
 test_batch_iter = iter(test_batch_dataset)
 
-# Build model!
-model = build_unet_model(config, model_config, verbose=True)
 
-# Training
+# %%
 
-optimizer = get_optimizer_by_config(GLOBAL_CONFIG.optimizer)
+# test data gen
 
-history_path = f"../history/{GLOBAL_CONFIG.name}_{model_config.model_name}.npy"
-weights_path = f"../models/{GLOBAL_CONFIG.name}_{model_config.model_name}/checkpoint"
+_in, _out = next(test_batch_iter)
 
-# get the loss function by loss config
-from mss.trainer.loss import get_loss_func_by_loss_config
-loss_func = get_loss_func_by_loss_config(GLOBAL_CONFIG.loss)
-trainer = None
-if "sl" in GLOBAL_CONFIG.loss.name:
-  trainer = TrainerWithDistMatrix(
-    model,
-    train_batch_iter,
-    test_batch_iter,
-    optimizer,
-    loss_func,
-    epochs=GLOBAL_CONFIG.epochs,
-    steps_per_epoch=GLOBAL_CONFIG.steps_per_epoch, # 34000 // 8 = 4250
-    valid_step=GLOBAL_CONFIG.valid_step,
-    history_path=history_path,
-    weights_path=weights_path,
-    save_history=True
-  )
-else:
-  trainer = Trainer(
-    model,
-    train_batch_iter,
-    test_batch_iter,
-    optimizer,
-    loss_func,
-    epochs=GLOBAL_CONFIG.epochs,
-    steps_per_epoch=GLOBAL_CONFIG.steps_per_epoch, # 34000 // 8 = 4250
-    valid_step=GLOBAL_CONFIG.valid_step,
-    history_path=history_path,
-    weights_path=weights_path,
-    save_history=True
-  )
+# %%
 
+_in.shape
+
+# %%
+
+_out.shape
+
+
+# %%
+
+
+model = get_rnn_model()
+model.summary()
+model_name = "rnn_1"
+# sample_input = tf.ones(shape=(BATCH_SIZE, SPECTROGRAM_TIME_LENGTH, FREQUENCY_LENGTH, 2))
+# with tf.device("/CPU:0"):
+#   sample_output = model(sample_input, training=False)
+# print(sample_output)
+
+# %%
+
+
+history_path = f"../history/{model_name}.npy"
+weights_path = f"../models/{model_name}/checkpoint"
+
+from mer.optimizer import get_SGD_optimizer
+from mer.loss import simple_mae_loss, simple_mse_loss
+optimizer = get_SGD_optimizer()
+
+# %%
+
+from mer.trainer import Trainer
+
+trainer = Trainer(model,
+  train_batch_iter,
+  test_batch_iter,
+  optimizer,
+  simple_mae_loss,
+  epochs=2,
+  steps_per_epoch=100, # 1800 // 16
+  valid_step=20,
+  history_path=history_path,
+  weights_path=weights_path,
+  save_history=True)
+
+# About 50 epochs with each epoch step 100 will cover the whole training dataset!
 history = trainer.train()
+
+# %%
