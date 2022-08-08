@@ -16,7 +16,7 @@ def get_rnn_model(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CON
   tensor = L.Dense(32, activation="relu")(tensor)
   tensor = L.Dropout(0.2)(tensor)
   tensor = L.Dense(8, activation="relu")(tensor)
-  out_tensor = L.Dense(2, activation="relu")(tensor)
+  out_tensor = L.Dense(4, activation="relu")(tensor)
   model = Model(inputs=input_tensor, outputs=out_tensor)
 
   if verbose:

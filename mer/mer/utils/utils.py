@@ -122,16 +122,16 @@ def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
       channel (int, optional): [description]. Defaults to 0.
   """
   # Spectrogram of one second
-  from_id = int(DEFAULT_FREQ * second_id)
-  to_id = min(int(DEFAULT_FREQ * (second_id + second_length)), test_audio.shape[0])
+  from_id = int(GLOBAL_CONFIG.DEFAULT_FREQ * second_id)
+  to_id = min(int(GLOBAL_CONFIG.DEFAULT_FREQ * (second_id + second_length)), test_audio.shape[0])
 
-  test_spectrogram = get_spectrogram(test_audio[from_id:, channel], input_len=int(DEFAULT_FREQ * second_length))
+  test_spectrogram = get_spectrogram(test_audio[from_id:, channel], input_len=int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length))
   print(test_spectrogram.shape)
   fig, axes = plt.subplots(2, figsize=(12, 8))
   timescale = np.arange(to_id - from_id)
   axes[0].plot(timescale, test_audio[from_id:to_id, channel].numpy())
   axes[0].set_title('Waveform')
-  axes[0].set_xlim([0, int(DEFAULT_FREQ * second_length)])
+  axes[0].set_xlim([0, int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length)])
 
   plot_spectrogram(test_spectrogram.numpy(), axes[1])
   axes[1].set_title('Spectrogram')

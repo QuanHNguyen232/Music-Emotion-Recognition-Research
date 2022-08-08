@@ -61,6 +61,9 @@ filenames = tf.io.gfile.glob(str(GLOBAL_CONFIG.AUDIO_FOLDER) + '/*')
 
 df = load_metadata(GLOBAL_CONFIG.ANNOTATION_SONG_LEVEL)
 
+# Smaller set of data
+df = df[:64]
+
 df
 
 # %%
@@ -82,10 +85,10 @@ def train_datagen():
     valence_mean = float(row["Valence(mean)"])
     
     # TODO: HOw are we gonna integrate valence and arousal std?
-    # valence_std = float(row["Arousal(std)"])
-    # arousal_std = float(row["Valence(std)"])
+    arousal_std = float(row["Arousal(std)"])
+    valence_std = float(row["Valence(std)"])
     
-    label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+    label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
     audio_file = tf.io.read_file(song_path)
     waveforms, _ = tf.audio.decode_wav(contents=audio_file)
@@ -126,7 +129,9 @@ def test_datagen():
     song_id = row["musicId"]
     valence_mean = float(row["Valence(mean)"])
     arousal_mean = float(row["Arousal(mean)"])
-    label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+    arousal_std = float(row["Arousal(std)"])
+    valence_std = float(row["Valence(std)"])
+    label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
     audio_file = tf.io.read_file(song_path)
     waveforms, _ = tf.audio.decode_wav(contents=audio_file)
@@ -158,7 +163,7 @@ train_dataset = tf.data.Dataset.from_generator(
   train_datagen,
   output_signature=(
     tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
-    tf.TensorSpec(shape=(2), dtype=tf.float32)
+    tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
 )
 train_batch_dataset = train_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
@@ -180,7 +185,7 @@ test_dataset = tf.data.Dataset.from_generator(
   test_datagen,
   output_signature=(
     tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
-    tf.TensorSpec(shape=(2, ), dtype=tf.float32)
+    tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
 )
 test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
@@ -207,6 +212,40 @@ model_name = "rnn_1"
 
 # %%
 
+def get_rnn_model_2(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, 2), verbose=False):
+  input_tensor = L.Input(shape=input_shape)
+  tensor = L.Permute((2, 1, 3))(input_tensor)
+  tensor = L.Dense(1, "relu")(tensor)
+  tensor = tf.squeeze(tensor, axis=-1)
+  # tensor = L.Resizing(GLOBAL_CONFIG.FREQUENCY_LENGTH, 1024)(tensor)
+  tensor = L.LSTM(512)(tensor)
+  tensor = L.Dropout(0.2)(tensor)
+  tensor = L.Dense(256, activation="relu")(tensor)
+  tensor = L.Dense(256, activation="relu")(tensor)
+  tensor = L.Dropout(0.2)(tensor)
+  tensor = L.Dense(128, activation="relu")(tensor)
+  tensor = L.Dense(128, activation="relu")(tensor)
+  tensor = L.Dropout(0.2)(tensor)
+  tensor = L.Dense(64, activation="relu")(tensor)
+  tensor = L.Dense(64, activation="relu")(tensor)
+  tensor = L.Dense(32, activation="relu")(tensor)
+  tensor = L.Dense(32, activation="relu")(tensor)
+  tensor = L.Dense(8, activation="relu")(tensor)
+  tensor = L.Dense(8, activation="relu")(tensor)
+  out_tensor = L.Dense(4)(tensor)
+  model = Model(inputs=input_tensor, outputs=out_tensor)
+
+  if verbose:
+    model.summary()
+  
+  return model
+
+model = get_rnn_model_2()
+model.summary()
+model_name = "rnn_2"
+
+# %%
+
 
 history_path = f"../history/{model_name}.npy"
 weights_path = f"../models/{model_name}/checkpoint"
@@ -224,9 +263,9 @@ trainer = Trainer(model,
   test_batch_iter,
   optimizer,
   simple_mse_loss,
-  epochs=3,
-  steps_per_epoch=100, # 1800 // 16
-  valid_step=20,
+  epochs=50,
+  steps_per_epoch=4, # 64 // 16
+  valid_step=2,
   history_path=history_path,
   weights_path=weights_path,
   save_history=True)
@@ -269,13 +308,45 @@ plt.legend()
 plt.show()
 
 # %%
+import sounddevice as sd
+from mer.utils.utils import plot_spectrogram
+def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
+  """ Plot and play
+
+  Args:
+      test_audio ([type]): [description]
+      second_id (float, optional): [description]. Defaults to 24.0.
+      second_length (int, optional): [description]. Defaults to 1.
+      channel (int, optional): [description]. Defaults to 0.
+  """
+  # Spectrogram of one second
+  from_id = int(GLOBAL_CONFIG.DEFAULT_FREQ * second_id)
+  to_id = min(int(GLOBAL_CONFIG.DEFAULT_FREQ * (second_id + second_length)), test_audio.shape[0])
+
+  test_spectrogram = get_spectrogram(test_audio[from_id:, channel], input_len=int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length))
+  print(test_spectrogram.shape)
+  fig, axes = plt.subplots(2, figsize=(12, 8))
+  timescale = np.arange(to_id - from_id)
+  axes[0].plot(timescale, test_audio[from_id:to_id, channel].numpy())
+  axes[0].set_title('Waveform')
+  axes[0].set_xlim([0, int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length)])
+
+  plot_spectrogram(test_spectrogram.numpy(), axes[1])
+  axes[1].set_title('Spectrogram')
+  plt.show()
+
+  # Play sound
+  sd.play(test_audio[from_id: to_id, channel], blocking=True)
+
 
 def evaluate(df_pointer, model, loss_func, play=False):
   row = test_df.loc[df_pointer]
   song_id = row["musicId"]
   arousal_mean = float(row["Arousal(mean)"])
   valence_mean = float(row["Valence(mean)"])
-  label = tf.convert_to_tensor([valence_mean, arousal_mean], dtype=tf.float32)
+  arousal_std = float(row["Arousal(std)"])
+  valence_std = float(row["Valence(std)"])
+  label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
   print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
   song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
   audio_file = tf.io.read_file(song_path)
@@ -311,6 +382,6 @@ i = 0
 # %%
 
 i += 1
-evaluate(i, model, simple_mae_loss, play=False)
+evaluate(i, model, simple_mae_loss, play=True)
 
 

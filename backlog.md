@@ -1,5 +1,11 @@
 # MER
 
+## August 6, 2022:
+* Error on std of arousal and valence: E = z(x^ ; mean, std)
+* Augment, sample more data to test with the model (not the training process)
+* Every song has different mean and std. Dont minimize the actual loss, we want to minimize the loss in the distribution in each song conceptually.
+* Feature of the input as spectorgram or the whole waveform?
+
 ## July 28, 2022:
 * Feature extraction techniques:
   * Mel-frequency cepstral coefficients (MFCCs)
