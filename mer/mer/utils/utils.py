@@ -229,3 +229,36 @@ def get_CAM(model, img, actual_label, loss_func, layer_name='block5_conv3'):
   del model_grad, conv_output_values, grads_values, loss
   
   return heatmap
+
+# Statistics
+def plot_history(history_path):
+
+  import matplotlib.pyplot as plt
+  # Plot
+  with open(history_path, "rb") as f:
+    [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
+
+
+  e_loss = [k[0] for k in epochs_loss]
+
+  e_all_loss = []
+
+  id = 0
+  time_val = []
+  for epoch in epochs_loss:
+    for step in epoch:
+      e_all_loss.append(step.numpy())
+      id += 1
+    time_val.append(id)
+
+  plt.figure(facecolor='white')
+  plt.plot(np.arange(0, len(e_all_loss), 1), e_all_loss, label = "train loss")
+  plt.plot(time_val, epochs_val_loss, label = "val loss")
+
+  # plt.plot(np.arange(1,len(e_loss)+ 1), e_loss, label = "train loss")
+  # plt.plot(np.arange(1,len(epochs_val_loss)+ 1), epochs_val_loss, label = "val loss")
+  plt.xlabel("Step")
+  plt.ylabel("Loss")
+  plt.legend()
+  
+  plt.show()

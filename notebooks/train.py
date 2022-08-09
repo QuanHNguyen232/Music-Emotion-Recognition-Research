@@ -11,21 +11,16 @@ Example notebook file
 
 # %%
 
-import tensorflow as tf
-
-print(f"Tensorflow version: {tf.__version__}")
-print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
-
 import argparse
 import os
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
 
-from mer.utils.const import get_config_from_json, setup_global_config
-
+import tensorflow as tf
+print(f"Tensorflow version: {tf.__version__}")
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 gpus = tf.config.list_physical_devices('GPU')
-
 if gpus:
   try:
     # Currently, memory growth needs to be the same across GPUs
@@ -36,6 +31,10 @@ if gpus:
   except RuntimeError as e:
     # Memory growth must be set before GPUs have been initialized
     print(e)
+from tensorflow.python.keras import layers as L
+from tensorflow.python.keras.models import Model
+
+from mer.utils.const import get_config_from_json, setup_global_config
 
 # Argument parsing
 config_path = "../configs/config.json"
@@ -51,10 +50,10 @@ from mer.utils.const import GLOBAL_CONFIG
 from mer.utils.utils import load_metadata, split_train_test, \
   preprocess_waveforms, get_spectrogram, plot_and_play, \
   pad_waveforms, plot_wave
-from mer.model import get_rnn_model
+from mer.model import get_rnn_model,get_rnn_model_2, Simple_CRNN_3
+from mer.optimizer import get_Adam_optimizer, get_SGD_optimizer
+from mer.loss import simple_mae_loss, simple_mse_loss
 
-from tensorflow.python.keras import layers as L
-from tensorflow.python.keras.models import Model
 
 # %%%
 
@@ -242,142 +241,17 @@ print(out.shape)
 
 # %%
 
-
-model = get_rnn_model()
-model.summary()
-model_name = "rnn_1"
+# model = get_rnn_model()
+# model.summary()
+# model_name = "rnn_1"
 # sample_input = tf.ones(shape=(BATCH_SIZE, SPECTROGRAM_TIME_LENGTH, FREQUENCY_LENGTH, 2))
 # with tf.device("/CPU:0"):
 #   sample_output = model(sample_input, training=False)
 # print(sample_output)
 
-# %%
-
-def get_rnn_model_2(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, 2), verbose=False):
-  input_tensor = L.Input(shape=input_shape)
-  tensor = L.Permute((2, 1))(input_tensor)
-  # tensor = L.Dense(1, "relu")(tensor)
-  # tensor = tf.squeeze(tensor, axis=-1)
-  # tensor = L.Resizing(GLOBAL_CONFIG.FREQUENCY_LENGTH, 1024)(tensor)
-  tensor = L.LSTM(512)(tensor)
-  tensor = L.Dropout(0.2)(tensor)
-  tensor = L.Dense(256, activation="relu")(tensor)
-  tensor = L.Dense(256, activation="relu")(tensor)
-  tensor = L.Dropout(0.2)(tensor)
-  tensor = L.Dense(128, activation="relu")(tensor)
-  tensor = L.Dense(128, activation="relu")(tensor)
-  tensor = L.Dropout(0.2)(tensor)
-  tensor = L.Dense(64, activation="relu")(tensor)
-  tensor = L.Dense(64, activation="relu")(tensor)
-  tensor = L.Dense(32, activation="relu")(tensor)
-  tensor = L.Dense(32, activation="relu")(tensor)
-  tensor = L.Dense(8, activation="relu")(tensor)
-  tensor = L.Dense(8, activation="relu")(tensor)
-  out_tensor = L.Dense(4)(tensor)
-  model = Model(inputs=input_tensor, outputs=out_tensor)
-
-  if verbose:
-    model.summary()
-  
-  return model
-
-model = get_rnn_model_2(input_shape=in_wave.shape[1:])
-model.summary()
-model_name = "rnn_2"
-
-
-# %%
-
-def Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, 1)):
-  """ CRNN that uses GRU
-
-  Args:
-    inputs (tf.Tensor): Expect tensor shape (batch, width, height, channel)
-
-  Returns:
-    [type]: [description]
-  """
-  
-  inputs = L.Input(shape=input_shape)
-  tensor = L.Permute((2, 1, 3))(inputs)
-  tensor = tf.keras.layers.Resizing(GLOBAL_CONFIG.FREQUENCY_LENGTH, 2048)(tensor)
-  
-  tensor = L.Conv2D(64, (5,5), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.Conv2D(64 // 2, (1,1), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.MaxPool2D(2,2)(tensor)
-  tensor = L.Dropout(0.1)(tensor)
-
-  tensor = L.Conv2D(128, (5,5), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.Conv2D(128 // 2, (1,1), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.MaxPool2D(2,2)(tensor)
-  tensor = L.Dropout(0.1)(tensor)
-
-  tensor = L.Conv2D(256, (5,5), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.Conv2D(256 // 2, (1,1), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.MaxPool2D(2,2)(tensor)
-  tensor = L.Dropout(0.1)(tensor)
-
-  tensor = L.Conv2D(512, (5,5), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.Conv2D(512 // 2, (1,1), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.MaxPool2D(2,2)(tensor)
-  tensor = L.Dropout(0.1)(tensor)
-
-  tensor = L.Conv2D(1024, (3, 3), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.Conv2D(1024 // 2, (1,1), padding="valid")(tensor)
-  tensor = L.ReLU()(tensor)
-  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
-  tensor = L.MaxPool2D(2,2)(tensor)
-  tensor = L.Dropout(0.1)(tensor)
-
-  tensor = tf.squeeze(tensor, axis=1)
-
-  tensor = L.Permute((2, 1))(tensor)
-
-  tensor = L.LSTM(256, activation="tanh", return_sequences=True)(tensor)
-  tensor = L.LSTM(128, activation="tanh", return_sequences=True)(tensor)
-  tensor = L.LSTM(64, activation="tanh")(tensor)
-  tensor = L.Dense(512, activation="relu")(tensor)
-  tensor = L.Dense(256, activation="relu")(tensor)
-  tensor = L.Dense(64, activation="relu")(tensor)
-  out = L.Dense(4)(tensor)
-
-  # tensor_1 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor)
-  # tensor_1 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor_1)
-  # tensor_1 = L.Bidirectional(L.LSTM(128))(tensor_1)
-  # tensor_1 = L.Dense(512, activation="relu")(tensor_1)
-  # tensor_1 = L.Dense(256, activation="relu")(tensor_1)
-  # tensor_1 = L.Dense(64, activation="relu")(tensor_1)
-  # out_1 = L.Dense(1, activation="relu")(tensor_1)
-
-  # tensor_2 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor)
-  # tensor_2 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor_2)
-  # tensor_2 = L.Bidirectional(L.LSTM(128))(tensor_2)
-  # tensor_2 = L.Dense(512, activation="relu")(tensor_2)
-  # tensor_2 = L.Dense(256, activation="relu")(tensor_2)
-  # tensor_2 = L.Dense(64, activation="relu")(tensor_2)
-  # out_2 = L.Dense(1, activation="relu")(tensor_2)
-  
-
-  model = Model(inputs=inputs, outputs=out)
-  return model
+# model = get_rnn_model_2(input_shape=in_wave.shape[1:])
+# model.summary()
+# model_name = "rnn_2"
 
 model = Simple_CRNN_3(input_shape=in_spec.shape[1:])
 model.summary()
@@ -389,8 +263,6 @@ model_name = "crnn_3"
 history_path = f"../history/{model_name}.npy"
 weights_path = f"../models/{model_name}/checkpoint"
 
-from mer.optimizer import get_Adam_optimizer, get_SGD_optimizer
-from mer.loss import simple_mae_loss, simple_mse_loss
 # optimizer = get_SGD_optimizer()
 optimizer = get_Adam_optimizer()
 
@@ -415,73 +287,11 @@ history = trainer.train()
 
 # %%
 
-# Statistics
-def plot_history(history_path):
-
-  import matplotlib.pyplot as plt
-  # Plot
-  with open(history_path, "rb") as f:
-    [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
-
-
-  e_loss = [k[0] for k in epochs_loss]
-
-  e_all_loss = []
-
-  id = 0
-  time_val = []
-  for epoch in epochs_loss:
-    for step in epoch:
-      e_all_loss.append(step.numpy())
-      id += 1
-    time_val.append(id)
-
-  plt.figure(facecolor='white')
-  plt.plot(np.arange(0, len(e_all_loss), 1), e_all_loss, label = "train loss")
-  plt.plot(time_val, epochs_val_loss, label = "val loss")
-
-  # plt.plot(np.arange(1,len(e_loss)+ 1), e_loss, label = "train loss")
-  # plt.plot(np.arange(1,len(epochs_val_loss)+ 1), epochs_val_loss, label = "val loss")
-  plt.xlabel("Step")
-  plt.ylabel("Loss")
-  plt.legend()
-  
-  plt.show()
+from mer.utils.utils import plot_history
 
 plot_history(history_path)
 
 # %%
-
-import sounddevice as sd
-from mer.utils.utils import plot_spectrogram
-def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
-  """ Plot and play
-
-  Args:
-      test_audio ([type]): [description]
-      second_id (float, optional): [description]. Defaults to 24.0.
-      second_length (int, optional): [description]. Defaults to 1.
-      channel (int, optional): [description]. Defaults to 0.
-  """
-  # Spectrogram of one second
-  from_id = int(GLOBAL_CONFIG.DEFAULT_FREQ * second_id)
-  to_id = min(int(GLOBAL_CONFIG.DEFAULT_FREQ * (second_id + second_length)), test_audio.shape[0])
-
-  test_spectrogram = get_spectrogram(test_audio[from_id:, channel], input_len=int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length))
-  print(test_spectrogram.shape)
-  fig, axes = plt.subplots(2, figsize=(12, 8))
-  timescale = np.arange(to_id - from_id)
-  axes[0].plot(timescale, test_audio[from_id:to_id, channel].numpy())
-  axes[0].set_title('Waveform')
-  axes[0].set_xlim([0, int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length)])
-
-  plot_spectrogram(test_spectrogram.numpy(), axes[1])
-  axes[1].set_title('Spectrogram')
-  plt.show()
-
-  # Play sound
-  sd.play(test_audio[from_id: to_id, channel], blocking=True)
-
 
 def evaluate(df_pointer, model, loss_func, play=False):
   row = test_df.loc[df_pointer]
@@ -521,8 +331,6 @@ i = 0
 # %%
 
 i += 1
-evaluate(i, model, simple_mae_loss, play=True)
+evaluate(i, model, simple_mse_loss, play=True)
 
 
-
-# %%
