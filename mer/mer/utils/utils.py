@@ -112,6 +112,17 @@ def split_train_test(df: pd.DataFrame, train_ratio: float):
   test_df = test_df.reset_index(drop=True)
   return train_df, test_df
 
+def plot_wave(waveforms, second_id = 0, second_length = 10, channel = 0):
+  from_id = int(GLOBAL_CONFIG.DEFAULT_FREQ * second_id)
+  to_id = min(int(GLOBAL_CONFIG.DEFAULT_FREQ * (second_id + second_length)), waveforms.shape[0])
+
+  fig, axes = plt.subplots(1, figsize=(12, 4))
+  timescale = np.arange(to_id - from_id)
+  axes.plot(timescale, waveforms[from_id:to_id, channel].numpy())
+  axes.set_title('Waveform')
+  axes.set_xlim([0, int(GLOBAL_CONFIG.DEFAULT_FREQ * second_length)])
+  plt.show()
+
 def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
   """ Plot and play
 
@@ -140,7 +151,7 @@ def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
   # Play sound
   sd.play(test_audio[from_id: to_id, channel], blocking=True)
 
-def preprocess_waveforms(waveforms, input_len):
+def pad_waveforms(waveforms, input_len):
   """ Get the first input_len value of the waveforms, if not exist, pad it with 0.
 
   Args:
@@ -156,7 +167,20 @@ def preprocess_waveforms(waveforms, input_len):
     preprocessed = waveforms[:input_len, :]
   else:
     preprocessed[:waveforms.shape[0], :] = waveforms
-  return tf.convert_to_tensor(preprocessed)
+  preprocessed = tf.convert_to_tensor(preprocessed)
+  return preprocessed
+
+def preprocess_waveforms(waveforms):
+  # preprocessed = (
+  #   preprocessed - tf.broadcast_to(
+  #     tf.expand_dims(
+  #       tf.reduce_mean(preprocessed, axis=1), axis=1
+  #     ), 
+  #     preprocessed.shape
+  #   )
+  # ) / (tf.broadcast_to(tf.expand_dims(tf.math.reduce_std(preprocessed, axis=1), axis=1), preprocessed.shape) + 1e-8)
+  preprocessed = waveforms / 2.0 + 0.5
+  return preprocessed
 
 def tanh_to_sigmoid(inputs):
   """ Convert from tanh range to sigmoid range

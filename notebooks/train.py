@@ -19,6 +19,8 @@ print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 import argparse
 import os
 import numpy as np
+import librosa
+import matplotlib.pyplot as plt
 
 from mer.utils.const import get_config_from_json, setup_global_config
 
@@ -47,7 +49,8 @@ from mer.utils.const import GLOBAL_CONFIG
 # Because the generator and some classes are based on the
 # GLOBAL_CONFIG, we have to import them after we set the config
 from mer.utils.utils import load_metadata, split_train_test, \
-  preprocess_waveforms, get_spectrogram, plot_and_play
+  preprocess_waveforms, get_spectrogram, plot_and_play, \
+  pad_waveforms, plot_wave
 from mer.model import get_rnn_model
 
 from tensorflow.python.keras import layers as L
@@ -70,6 +73,38 @@ df
 
 train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 
+# %%
+
+# song_path = "../data/PMEmo/PMEmo2019/PMEmo2019/chorus_wav/6.wav"
+
+# lib_wave, sr = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+# lib_wave = tf.convert_to_tensor(lib_wave)[..., tf.newaxis]
+
+# plot_wave(lib_wave, second_length=40)
+
+
+# audio_file = tf.io.read_file(song_path)
+
+# waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
+
+
+# def plot_wave_4(waveforms, second_id = 0, second_length = 10, channel = 0):
+#   from_id = int(44100 * second_id)
+#   to_id = min(int(44100 * (second_id + second_length)), waveforms.shape[0])
+
+#   fig, axes = plt.subplots(1, figsize=(12, 4))
+#   timescale = np.arange(to_id - from_id)
+#   axes.plot(timescale, waveforms[from_id:to_id, channel].numpy())
+#   axes.set_title('Waveform')
+#   axes.set_xlim([0, int(44100 * second_length)])
+#   plt.show()
+
+# plot_wave_4(waveforms, second_length=40)
+
+
+
+# %%
+
 def train_datagen():
   """ Predicting valence mean and arousal mean
   """
@@ -90,9 +125,14 @@ def train_datagen():
     
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-    audio_file = tf.io.read_file(song_path)
-    waveforms, _ = tf.audio.decode_wav(contents=audio_file)
-    waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+    # audio_file = tf.io.read_file(song_path)
+    # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
+    # waveforms = tfio.audio.resample(waveforms, sample_rate, GLOBAL_CONFIG.DEFAULT_FREQ)
+    
+    waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+    waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
+    
+    waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
     # print(waveforms.shape)
 
     # Work on building spectrogram
@@ -114,7 +154,10 @@ def train_datagen():
     # some spectrogram are not the same shape
     padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
     
-    yield (tf.convert_to_tensor(padded_spectrogram), label)
+    # Preprocessed and normalize waveforms in the end
+    waveforms = preprocess_waveforms(waveforms)
+
+    yield (waveforms, tf.convert_to_tensor(padded_spectrogram), label)
 
 def test_datagen():
   """ Predicting valence mean and arousal mean
@@ -133,11 +176,14 @@ def test_datagen():
     valence_std = float(row["Valence(std)"])
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-    audio_file = tf.io.read_file(song_path)
-    waveforms, _ = tf.audio.decode_wav(contents=audio_file)
-    waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
-    # print(waveforms.shape)
+    # audio_file = tf.io.read_file(song_path)
+    # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
 
+    waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+    waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
+
+    waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+    # print(waveforms.shape)
     # Work on building spectrogram
     # Shape (timestep, frequency, n_channel)
     spectrograms = None
@@ -157,11 +203,15 @@ def test_datagen():
     # some spectrogram are not the same shape
     padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
     
-    yield (tf.convert_to_tensor(padded_spectrogram), label)
+    # Preprocessed and normalize waveforms in the end
+    waveforms = preprocess_waveforms(waveforms)
+
+    yield (waveforms, tf.convert_to_tensor(padded_spectrogram), label)
 
 train_dataset = tf.data.Dataset.from_generator(
   train_datagen,
   output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
     tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
     tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
@@ -184,6 +234,7 @@ train_batch_iter = iter(train_batch_dataset)
 test_dataset = tf.data.Dataset.from_generator(
   test_datagen,
   output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
     tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
     tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
@@ -195,9 +246,30 @@ test_batch_iter = iter(test_batch_dataset)
 # %%
 # test data gen
 
-_in, _out = next(test_batch_iter)
-print(_in.shape)
-print(_out.shape)
+in_wave, in_spec, out = next(test_batch_iter)
+print(in_wave.shape)
+print(in_spec.shape)
+print(out.shape)
+
+# %%
+
+plot_wave(in_wave[0], second_id = 0, second_length = 40, channel = 0)
+
+# %%
+
+tf.reduce_mean(in_wave)
+
+# %%
+std_wave = tf.math.reduce_std(in_wave, axis=1)
+std_wave
+# %%
+mean_wave = tf.math.reduce_mean(in_wave, axis=1)
+mean_wave
+
+# %%
+
+
+
 
 # %%
 
@@ -214,9 +286,9 @@ model_name = "rnn_1"
 
 def get_rnn_model_2(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, 2), verbose=False):
   input_tensor = L.Input(shape=input_shape)
-  tensor = L.Permute((2, 1, 3))(input_tensor)
-  tensor = L.Dense(1, "relu")(tensor)
-  tensor = tf.squeeze(tensor, axis=-1)
+  tensor = L.Permute((2, 1))(input_tensor)
+  # tensor = L.Dense(1, "relu")(tensor)
+  # tensor = tf.squeeze(tensor, axis=-1)
   # tensor = L.Resizing(GLOBAL_CONFIG.FREQUENCY_LENGTH, 1024)(tensor)
   tensor = L.LSTM(512)(tensor)
   tensor = L.Dropout(0.2)(tensor)
@@ -240,7 +312,7 @@ def get_rnn_model_2(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_C
   
   return model
 
-model = get_rnn_model_2()
+model = get_rnn_model_2(input_shape=in_wave.shape[1:])
 model.summary()
 model_name = "rnn_2"
 
@@ -350,9 +422,13 @@ def evaluate(df_pointer, model, loss_func, play=False):
   label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
   print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
   song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-  audio_file = tf.io.read_file(song_path)
-  waveforms, _ = tf.audio.decode_wav(contents=audio_file)
-  waveforms = preprocess_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+  # audio_file = tf.io.read_file(song_path)
+  # waveforms, _ = tf.audio.decode_wav(contents=audio_file)
+
+  waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+  waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
+
+  waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
   spectrograms = None
   # Loop through each channel
   for i in range(waveforms.shape[-1]):
@@ -364,6 +440,8 @@ def evaluate(df_pointer, model, loss_func, play=False):
       spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
 
   spectrograms = spectrograms[tf.newaxis, ...]
+
+  waveforms = preprocess_waveforms(waveforms)
 
   ## Eval
   y_pred = model(spectrograms, training=False)[0]
@@ -386,3 +464,5 @@ i += 1
 evaluate(i, model, simple_mae_loss, play=True)
 
 
+
+# %%

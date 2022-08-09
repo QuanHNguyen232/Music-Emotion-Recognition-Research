@@ -1,2 +1,8 @@
 -e "./mer"
 -e "./mss"
+
+librosa==0.9.2
+tensorflow==2.8.0
+matplotlib
+sounddevice
+pandas
