@@ -138,8 +138,17 @@ def Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CON
   # tensor_2 = L.Dense(256, activation="relu")(tensor_2)
   # tensor_2 = L.Dense(64, activation="relu")(tensor_2)
   # out_2 = L.Dense(1, activation="relu")(tensor_2)
-  
 
+  # Comment out to decide to create a normalization layer.
+  # NOTE: this is every time consuming because it looks at all the data, only 
+  # use this at the first time.
+  # NOTE: Normally, we create this layer once, save it somewhere to reuse in
+  # every other model.
+  #
+  # norm_layer = L.Normalization()
+  # norm_layer.adapt(data=train_dataset.map(map_func=lambda spec, label: spec))
+  #
+  
   model = Model(inputs=inputs, outputs=out)
   return model
 

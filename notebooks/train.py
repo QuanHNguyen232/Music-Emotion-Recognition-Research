@@ -53,6 +53,7 @@ from mer.utils.utils import load_metadata, split_train_test, \
 from mer.model import get_rnn_model,get_rnn_model_2, Simple_CRNN_3
 from mer.optimizer import get_Adam_optimizer, get_SGD_optimizer
 from mer.loss import simple_mae_loss, simple_mse_loss
+from mer.feature import load_wave_data, extract_spectrogram_features
 
 
 # %%%
@@ -103,33 +104,6 @@ train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 
 
 # %%
-
-def load_wave_data(song_path):
-  # audio_file = tf.io.read_file(song_path)
-  # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
-  # waveforms = tfio.audio.resample(waveforms, sample_rate, GLOBAL_CONFIG.DEFAULT_FREQ)
-  waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
-  waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
-  waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
-  return waveforms
-
-def extract_spectrogram_features(waveforms):
-  spectrograms = None
-  # Loop through each channel
-  for i in range(waveforms.shape[-1]):
-    # Shape (timestep, frequency, 1)
-    spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
-    # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
-    if spectrograms == None:
-      spectrograms = spectrogram
-    else:
-      spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
-  
-  padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
-
-  # some spectrogram are not the same shape
-  padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
-  return tf.convert_to_tensor(padded_spectrogram)
 
 def train_datagen():
   """ Predicting valence mean and arousal mean
@@ -202,17 +176,6 @@ train_dataset = tf.data.Dataset.from_generator(
 train_batch_dataset = train_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
 # train_batch_dataset = train_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
 train_batch_iter = iter(train_batch_dataset)
-
-
-# Comment out to decide to create a normalization layer.
-# NOTE: this is every time consuming because it looks at all the data, only 
-# use this at the first time.
-# NOTE: Normally, we create this layer once, save it somewhere to reuse in
-# every other model.
-#
-# norm_layer = L.Normalization()
-# norm_layer.adapt(data=train_dataset.map(map_func=lambda spec, label: spec))
-#
 
 test_dataset = tf.data.Dataset.from_generator(
   test_datagen,
@@ -303,9 +266,7 @@ def evaluate(df_pointer, model, loss_func, play=False):
   label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
   print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
   song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-  
   waveforms = load_wave_data(song_path)
-  waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
   spectrograms = extract_spectrogram_features(waveforms)[tf.newaxis, ...]
   waveforms = preprocess_waveforms(waveforms)
 
