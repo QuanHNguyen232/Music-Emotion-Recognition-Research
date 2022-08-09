@@ -25,6 +25,6 @@ def get_SGD_optimizer():
   optimizer = tf.keras.optimizers.SGD(learning_rate=GLOBAL_CONFIG.LEARNING_RATE)
   return optimizer
 
-def get_SGD_optimizer():
+def get_Adam_optimizer():
   optimizer = tf.keras.optimizers.Adam(learning_rate=GLOBAL_CONFIG.LEARNING_RATE)
   return optimizer

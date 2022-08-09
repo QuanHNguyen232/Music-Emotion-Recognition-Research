@@ -250,9 +250,10 @@ model_name = "rnn_2"
 history_path = f"../history/{model_name}.npy"
 weights_path = f"../models/{model_name}/checkpoint"
 
-from mer.optimizer import get_SGD_optimizer
+from mer.optimizer import get_Adam_optimizer, get_SGD_optimizer
 from mer.loss import simple_mae_loss, simple_mse_loss
-optimizer = get_SGD_optimizer()
+# optimizer = get_SGD_optimizer()
+optimizer = get_Adam_optimizer()
 
 # %%
 
