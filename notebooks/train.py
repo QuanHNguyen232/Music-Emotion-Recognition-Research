@@ -105,6 +105,33 @@ train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 
 # %%
 
+def load_wave_data(song_path):
+  # audio_file = tf.io.read_file(song_path)
+  # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
+  # waveforms = tfio.audio.resample(waveforms, sample_rate, GLOBAL_CONFIG.DEFAULT_FREQ)
+  waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+  waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
+  waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
+  return waveforms
+
+def extract_spectrogram_features(waveforms):
+  spectrograms = None
+  # Loop through each channel
+  for i in range(waveforms.shape[-1]):
+    # Shape (timestep, frequency, 1)
+    spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
+    # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
+    if spectrograms == None:
+      spectrograms = spectrogram
+    else:
+      spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
+  
+  padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
+
+  # some spectrogram are not the same shape
+  padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
+  return tf.convert_to_tensor(padded_spectrogram)
+
 def train_datagen():
   """ Predicting valence mean and arousal mean
   """
@@ -125,39 +152,17 @@ def train_datagen():
     
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-    # audio_file = tf.io.read_file(song_path)
-    # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
-    # waveforms = tfio.audio.resample(waveforms, sample_rate, GLOBAL_CONFIG.DEFAULT_FREQ)
     
-    waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
-    waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
+    waveforms = load_wave_data(song_path)
     
-    waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
-    # print(waveforms.shape)
-
-    # Work on building spectrogram
-    # Shape (timestep, frequency, n_channel)
-    spectrograms = None
-    # Loop through each channel
-    for i in range(waveforms.shape[-1]):
-      # Shape (timestep, frequency, 1)
-      spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
-      # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
-      if spectrograms == None:
-        spectrograms = spectrogram
-      else:
-        spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
-    pointer += 1
-
-    padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
-    # spectrograms = spectrograms[tf.newaxis, ...]
-    # some spectrogram are not the same shape
-    padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
+    spectrogram_features = extract_spectrogram_features(waveforms)
     
     # Preprocessed and normalize waveforms in the end
     waveforms = preprocess_waveforms(waveforms)
 
-    yield (waveforms, tf.convert_to_tensor(padded_spectrogram), label)
+    # Update pointer
+    pointer += 1
+    yield (waveforms, spectrogram_features, label)
 
 def test_datagen():
   """ Predicting valence mean and arousal mean
@@ -176,37 +181,16 @@ def test_datagen():
     valence_std = float(row["Valence(std)"])
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
     song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-    # audio_file = tf.io.read_file(song_path)
-    # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
 
-    waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
-    waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
-
-    waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
-    # print(waveforms.shape)
-    # Work on building spectrogram
-    # Shape (timestep, frequency, n_channel)
-    spectrograms = None
-    # Loop through each channel
-    for i in range(waveforms.shape[-1]):
-      # Shape (timestep, frequency, 1)
-      spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
-      # spectrogram = tf.convert_to_tensor(np.log(spectrogram.numpy() + np.finfo(float).eps))
-      if spectrograms == None:
-        spectrograms = spectrogram
-      else:
-        spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
-    pointer += 1
-
-    padded_spectrogram = np.zeros((GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=float)
-    # spectrograms = spectrograms[tf.newaxis, ...]
-    # some spectrogram are not the same shape
-    padded_spectrogram[:spectrograms.shape[0], :spectrograms.shape[1], :] = spectrograms
+    waveforms = load_wave_data(song_path)
+    
+    spectrogram_features = extract_spectrogram_features(waveforms)
     
     # Preprocessed and normalize waveforms in the end
     waveforms = preprocess_waveforms(waveforms)
 
-    yield (waveforms, tf.convert_to_tensor(padded_spectrogram), label)
+    pointer += 1
+    yield (waveforms, spectrogram_features, label)
 
 train_dataset = tf.data.Dataset.from_generator(
   train_datagen,
@@ -253,7 +237,10 @@ print(out.shape)
 
 # %%
 
-plot_wave(in_wave[0], second_id = 0, second_length = 40, channel = 0)
+# plot_wave(in_wave[0], second_id = 0, second_length = 40, channel = 0)
+# %%
+
+plot_and_play(in_wave[5], second_id = 0, second_length = 40, channel = 0)
 
 # %%
 
