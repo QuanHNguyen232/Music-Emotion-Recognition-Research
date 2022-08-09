@@ -235,26 +235,8 @@ print(in_wave.shape)
 print(in_spec.shape)
 print(out.shape)
 
-# %%
-
 # plot_wave(in_wave[0], second_id = 0, second_length = 40, channel = 0)
-# %%
-
-plot_and_play(in_wave[5], second_id = 0, second_length = 40, channel = 0)
-
-# %%
-
-tf.reduce_mean(in_wave)
-
-# %%
-std_wave = tf.math.reduce_std(in_wave, axis=1)
-std_wave
-# %%
-mean_wave = tf.math.reduce_mean(in_wave, axis=1)
-mean_wave
-
-# %%
-
+# plot_and_play(in_wave[5], second_id = 0, second_length = 40, channel = 0)
 
 
 
@@ -303,6 +285,104 @@ model = get_rnn_model_2(input_shape=in_wave.shape[1:])
 model.summary()
 model_name = "rnn_2"
 
+
+# %%
+
+def Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, 1)):
+  """ CRNN that uses GRU
+
+  Args:
+    inputs (tf.Tensor): Expect tensor shape (batch, width, height, channel)
+
+  Returns:
+    [type]: [description]
+  """
+  
+  inputs = L.Input(shape=input_shape)
+  tensor = L.Permute((2, 1, 3))(inputs)
+  tensor = tf.keras.layers.Resizing(GLOBAL_CONFIG.FREQUENCY_LENGTH, 2048)(tensor)
+  
+  tensor = L.Conv2D(64, (5,5), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.Conv2D(64 // 2, (1,1), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.MaxPool2D(2,2)(tensor)
+  tensor = L.Dropout(0.1)(tensor)
+
+  tensor = L.Conv2D(128, (5,5), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.Conv2D(128 // 2, (1,1), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.MaxPool2D(2,2)(tensor)
+  tensor = L.Dropout(0.1)(tensor)
+
+  tensor = L.Conv2D(256, (5,5), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.Conv2D(256 // 2, (1,1), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.MaxPool2D(2,2)(tensor)
+  tensor = L.Dropout(0.1)(tensor)
+
+  tensor = L.Conv2D(512, (5,5), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.Conv2D(512 // 2, (1,1), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.MaxPool2D(2,2)(tensor)
+  tensor = L.Dropout(0.1)(tensor)
+
+  tensor = L.Conv2D(1024, (3, 3), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.Conv2D(1024 // 2, (1,1), padding="valid")(tensor)
+  tensor = L.ReLU()(tensor)
+  # tensor = L.LeakyReLU(alpha=0.1)(tensor)
+  tensor = L.MaxPool2D(2,2)(tensor)
+  tensor = L.Dropout(0.1)(tensor)
+
+  tensor = tf.squeeze(tensor, axis=1)
+
+  tensor = L.Permute((2, 1))(tensor)
+
+  tensor = L.LSTM(256, activation="tanh", return_sequences=True)(tensor)
+  tensor = L.LSTM(128, activation="tanh", return_sequences=True)(tensor)
+  tensor = L.LSTM(64, activation="tanh")(tensor)
+  tensor = L.Dense(512, activation="relu")(tensor)
+  tensor = L.Dense(256, activation="relu")(tensor)
+  tensor = L.Dense(64, activation="relu")(tensor)
+  out = L.Dense(4)(tensor)
+
+  # tensor_1 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor)
+  # tensor_1 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor_1)
+  # tensor_1 = L.Bidirectional(L.LSTM(128))(tensor_1)
+  # tensor_1 = L.Dense(512, activation="relu")(tensor_1)
+  # tensor_1 = L.Dense(256, activation="relu")(tensor_1)
+  # tensor_1 = L.Dense(64, activation="relu")(tensor_1)
+  # out_1 = L.Dense(1, activation="relu")(tensor_1)
+
+  # tensor_2 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor)
+  # tensor_2 = L.Bidirectional(L.LSTM(128, return_sequences=True))(tensor_2)
+  # tensor_2 = L.Bidirectional(L.LSTM(128))(tensor_2)
+  # tensor_2 = L.Dense(512, activation="relu")(tensor_2)
+  # tensor_2 = L.Dense(256, activation="relu")(tensor_2)
+  # tensor_2 = L.Dense(64, activation="relu")(tensor_2)
+  # out_2 = L.Dense(1, activation="relu")(tensor_2)
+  
+
+  model = Model(inputs=inputs, outputs=out)
+  return model
+
+model = Simple_CRNN_3(input_shape=in_spec.shape[1:])
+model.summary()
+model_name = "crnn_3"
+
 # %%
 
 
@@ -323,7 +403,7 @@ trainer = Trainer(model,
   test_batch_iter,
   optimizer,
   simple_mse_loss,
-  epochs=50,
+  epochs=10,
   steps_per_epoch=4, # 64 // 16
   valid_step=2,
   history_path=history_path,
@@ -336,38 +416,42 @@ history = trainer.train()
 # %%
 
 # Statistics
+def plot_history(history_path):
 
-import matplotlib.pyplot as plt
-# Plot
-with open(history_path, "rb") as f:
-  [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
+  import matplotlib.pyplot as plt
+  # Plot
+  with open(history_path, "rb") as f:
+    [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
 
 
-e_loss = [k[0] for k in epochs_loss]
+  e_loss = [k[0] for k in epochs_loss]
 
-e_all_loss = []
+  e_all_loss = []
 
-id = 0
-time_val = []
-for epoch in epochs_loss:
-  for step in epoch:
-    e_all_loss.append(step.numpy())
-    id += 1
-  time_val.append(id)
+  id = 0
+  time_val = []
+  for epoch in epochs_loss:
+    for step in epoch:
+      e_all_loss.append(step.numpy())
+      id += 1
+    time_val.append(id)
+
+  plt.figure(facecolor='white')
+  plt.plot(np.arange(0, len(e_all_loss), 1), e_all_loss, label = "train loss")
+  plt.plot(time_val, epochs_val_loss, label = "val loss")
+
+  # plt.plot(np.arange(1,len(e_loss)+ 1), e_loss, label = "train loss")
+  # plt.plot(np.arange(1,len(epochs_val_loss)+ 1), epochs_val_loss, label = "val loss")
+  plt.xlabel("Step")
+  plt.ylabel("Loss")
+  plt.legend()
+  
+  plt.show()
+
+plot_history(history_path)
 
 # %%
 
-plt.plot(np.arange(0, len(e_all_loss), 1), e_all_loss, label = "train loss")
-plt.plot(time_val, epochs_val_loss, label = "val loss")
-
-# plt.plot(np.arange(1,len(e_loss)+ 1), e_loss, label = "train loss")
-# plt.plot(np.arange(1,len(epochs_val_loss)+ 1), epochs_val_loss, label = "val loss")
-plt.xlabel("Step")
-plt.ylabel("Loss")
-plt.legend()
-plt.show()
-
-# %%
 import sounddevice as sd
 from mer.utils.utils import plot_spectrogram
 def plot_and_play(test_audio, second_id = 24.0, second_length = 1, channel = 0):
@@ -409,25 +493,10 @@ def evaluate(df_pointer, model, loss_func, play=False):
   label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
   print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
   song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
-  # audio_file = tf.io.read_file(song_path)
-  # waveforms, _ = tf.audio.decode_wav(contents=audio_file)
-
-  waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
-  waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
-
+  
+  waveforms = load_wave_data(song_path)
   waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
-  spectrograms = None
-  # Loop through each channel
-  for i in range(waveforms.shape[-1]):
-    # Shape (timestep, frequency, 1)
-    spectrogram = get_spectrogram(waveforms[..., i], input_len=waveforms.shape[0])
-    if spectrograms == None:
-      spectrograms = spectrogram
-    else:
-      spectrograms = tf.concat([spectrograms, spectrogram], axis=-1)
-
-  spectrograms = spectrograms[tf.newaxis, ...]
-
+  spectrograms = extract_spectrogram_features(waveforms)[tf.newaxis, ...]
   waveforms = preprocess_waveforms(waveforms)
 
   ## Eval
@@ -444,6 +513,10 @@ def evaluate(df_pointer, model, loss_func, play=False):
     plot_and_play(waveforms, 0, 40, 0)
 
 i = 0
+
+# %%
+
+# model.load_weights(weights_path)
 
 # %%
 
