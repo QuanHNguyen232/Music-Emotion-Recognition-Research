@@ -65,7 +65,7 @@ filenames = tf.io.gfile.glob(str(GLOBAL_CONFIG.AUDIO_FOLDER) + '/*')
 df = load_metadata(GLOBAL_CONFIG.ANNOTATION_SONG_LEVEL)
 
 # Smaller set of data
-df = df[:64]
+# df = df[:64]
 
 df
 
@@ -239,8 +239,8 @@ trainer = Trainer(model,
   optimizer,
   simple_mse_loss,
   epochs=10,
-  steps_per_epoch=4, # 64 // 16
-  valid_step=2,
+  steps_per_epoch=45, # // 64 // 16 // //////     724 // 16 = 45
+  valid_step=5,
   history_path=history_path,
   weights_path=weights_path,
   save_history=True)
