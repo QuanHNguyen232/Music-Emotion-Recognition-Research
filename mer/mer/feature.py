@@ -22,7 +22,8 @@ def load_wave_data(song_path):
   # audio_file = tf.io.read_file(song_path)
   # waveforms, sample_rate = tf.audio.decode_wav(contents=audio_file)
   # waveforms = tfio.audio.resample(waveforms, sample_rate, GLOBAL_CONFIG.DEFAULT_FREQ)
-  waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+  # waveforms, sample_rate = librosa.load(song_path, GLOBAL_CONFIG.DEFAULT_FREQ)
+  waveforms, sample_rate = librosa.load(song_path)
   waveforms = tf.convert_to_tensor(waveforms)[..., tf.newaxis]
   waveforms = pad_waveforms(waveforms, GLOBAL_CONFIG.WAVE_ARRAY_LENGTH)
   return waveforms

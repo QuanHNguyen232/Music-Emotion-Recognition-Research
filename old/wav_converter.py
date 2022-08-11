@@ -9,6 +9,9 @@ if __name__ == "__main__":
   dst = sys.argv[2]
   AudioSegment.converter = sys.argv[3]
 
+  if not os.path.exists(dst):
+    os.mkdir(dst)
+
   for i, fname in enumerate(os.listdir(src)):
     try:
       # convert mp3 to wav
