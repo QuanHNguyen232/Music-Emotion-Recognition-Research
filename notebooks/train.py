@@ -266,9 +266,10 @@ def evaluate(df_pointer, model, loss_func, play=False):
   label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
   print(f"Label: Valence: {valence_mean}, Arousal: {arousal_mean}")
   song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+  print(song_path)
   waveforms = load_wave_data(song_path)
   spectrograms = extract_spectrogram_features(waveforms)[tf.newaxis, ...]
-  waveforms = preprocess_waveforms(waveforms)
+  # waveforms = preprocess_waveforms(waveforms)
 
   ## Eval
   y_pred = model(spectrograms, training=False)[0]
@@ -295,3 +296,5 @@ i += 1
 evaluate(i, model, simple_mse_loss, play=True)
 
 
+
+# %%
