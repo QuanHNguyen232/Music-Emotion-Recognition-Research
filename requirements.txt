@@ -8,3 +8,4 @@ sounddevice
 pandas
 munch
 pydub
+protobuf==3.20.0
