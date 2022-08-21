@@ -13,6 +13,7 @@ Example notebook file
 
 import argparse
 import os
+from pickle import FALSE
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -238,9 +239,9 @@ trainer = Trainer(model,
   test_batch_iter,
   optimizer,
   simple_mse_loss,
-  epochs=10,
-  steps_per_epoch=45, # // 64 // 16 // //////     724 // 16 = 45
-  valid_step=5,
+  epochs=3,
+  steps_per_epoch=90, # // 64 // 16 // //////     724 // 16 = 45
+  valid_step=30,
   history_path=history_path,
   weights_path=weights_path,
   save_history=True)
@@ -293,7 +294,7 @@ i = 0
 # %%
 
 i += 1
-evaluate(i, model, simple_mse_loss, play=True)
+evaluate(i, model, simple_mse_loss, play=False)
 
 
 
