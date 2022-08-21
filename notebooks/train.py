@@ -236,7 +236,7 @@ trainer = Trainer(model,
   test_batch_iter,
   optimizer,
   simple_mse_loss,
-  epochs=3,
+  epochs=1,
   steps_per_epoch=90, # // 64 // 16 // //////     724 // 16 = 45
   valid_step=30,
   history_path=history_path,

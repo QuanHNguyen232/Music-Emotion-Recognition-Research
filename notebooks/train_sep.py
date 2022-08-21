@@ -102,7 +102,8 @@ train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 # plot_wave_4(waveforms, second_length=40)
 
 
-#%%
+# %%
+
 def train_sep_datagen():
   """ Predicting valence mean and arousal mean
   """
@@ -253,7 +254,7 @@ trainer = Trainer(model,
   test_batch_sep_iter,
   optimizer,
   simple_mse_loss,
-  epochs=5,
+  epochs=1,
   steps_per_epoch=90, # // 64 // 16 // //////     724 // 16 = 45
   valid_step=30,
   history_path=history_path,
@@ -267,8 +268,10 @@ history = trainer.train()
 
 from mer.utils.utils import plot_history
 
+print("Separated")
 plot_history(history_path)
 
+print("Normal")
 other_path = f"../history/{model_name}.npy"
 plot_history(other_path)
 
@@ -287,10 +290,8 @@ with open(other_path, "rb") as f:
 # %%
 
 
-print("Normal source val loss:", epochs_val_loss[3])
+print("Normal source val loss:", epochs_val_loss[4])
 print("Separated source val loss:", sep_epochs_val_loss[4])
-
-
 
 
 
