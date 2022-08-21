@@ -13,7 +13,6 @@ Example notebook file
 
 import argparse
 import os
-from pickle import FALSE
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -103,7 +102,8 @@ train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 # plot_wave_4(waveforms, second_length=40)
 
 
-def train_datagen():
+#%%
+def train_sep_datagen():
   """ Predicting valence mean and arousal mean
   """
   pointer = 0
@@ -120,22 +120,31 @@ def train_datagen():
     # TODO: HOw are we gonna integrate valence and arousal std?
     arousal_std = float(row["Arousal(std)"])
     valence_std = float(row["Valence(std)"])
-    
+        
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
-    song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+    song_dir = os.path.join(GLOBAL_CONFIG.SEP_AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.MP3_EXTENSION)
+
+    waveform_list = []
+    spectrogram_list = []
+    for wav_file in os.listdir(song_dir):
+      song_path = os.path.join(song_dir, wav_file)
+      
+      sep_waveform = load_wave_data(song_path)
+      sep_spectrogram_feat = extract_spectrogram_features(sep_waveform)
+      sep_waveform = preprocess_waveforms(sep_waveform)
+
+      waveform_list.append(sep_waveform)
+      spectrogram_list.append(sep_spectrogram_feat)
     
-    waveforms = load_wave_data(song_path)
     
-    spectrogram_features = extract_spectrogram_features(waveforms)
-    
-    # Preprocessed and normalize waveforms in the end
-    waveforms = preprocess_waveforms(waveforms)
+    waveforms = tf.concat(waveform_list, axis=1)  # shape=(x, 1) --> (x, 4)
+    spectrograms = tf.concat(spectrogram_list, axis=2)  # shape=(h, w, 1) --> (h, w, 4)
 
     # Update pointer
     pointer += 1
-    yield (waveforms, spectrogram_features, label)
+    yield (waveforms, spectrograms, label)
 
-def test_datagen():
+def test_sep_datagen():
   """ Predicting valence mean and arousal mean
   """
   pointer = 0
@@ -151,46 +160,54 @@ def test_datagen():
     arousal_std = float(row["Arousal(std)"])
     valence_std = float(row["Valence(std)"])
     label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
-    song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
 
-    waveforms = load_wave_data(song_path)
+    song_dir = os.path.join(GLOBAL_CONFIG.SEP_AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.MP3_EXTENSION)
+    waveform_list = []
+    spectrogram_list = []
+    for wav_file in os.listdir(song_dir):
+      song_path = os.path.join(song_dir, wav_file)
+      
+      sep_waveform = load_wave_data(song_path)
+      sep_spectrogram_feat = extract_spectrogram_features(sep_waveform)
+      sep_waveform = preprocess_waveforms(sep_waveform)
+
+      waveform_list.append(sep_waveform)
+      spectrogram_list.append(sep_spectrogram_feat)
     
-    spectrogram_features = extract_spectrogram_features(waveforms)
-    
-    # Preprocessed and normalize waveforms in the end
-    waveforms = preprocess_waveforms(waveforms)
+    waveforms = tf.concat(waveform_list, axis=1)  # shape=(x, 1) --> (x, 4)
+    spectrograms = tf.concat(spectrogram_list, axis=2)  # shape=(h, w, 1) --> (h, w, 4)
 
     pointer += 1
-    yield (waveforms, spectrogram_features, label)
+    yield (waveforms, spectrograms, label)
 
-train_dataset = tf.data.Dataset.from_generator(
-  train_datagen,
+# Create train dataset on seperated 16bit
+train_sep_dataset = tf.data.Dataset.from_generator(
+  train_sep_datagen,
   output_signature=(
-    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
-    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
     tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
 )
-train_batch_dataset = train_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
-# train_batch_dataset = train_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
-train_batch_iter = iter(train_batch_dataset)
+train_batch_sep_dataset = train_sep_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+train_batch_iter = iter(train_batch_sep_dataset)
 
-test_dataset = tf.data.Dataset.from_generator(
-  test_datagen,
+# Create test dataset on seperated 16bit
+test_sep_dataset = tf.data.Dataset.from_generator(
+  test_sep_datagen,
   output_signature=(
-    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
-    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
     tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
 )
-test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
-# test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
-test_batch_iter = iter(test_batch_dataset)
+test_batch_sep_dataset = test_sep_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+test_batch_sep_iter = iter(test_batch_sep_dataset)
 
-# %%
+# %%%%
 # test data gen
 
-in_wave, in_spec, out = next(test_batch_iter)
+in_wave, in_spec, out = next(test_batch_sep_iter)
 print(in_wave.shape)
 print(in_spec.shape)
 print(out.shape)
@@ -221,8 +238,8 @@ model_name = "crnn_3"
 # %%
 
 
-history_path = f"../history/{model_name}.npy"
-weights_path = f"../models/{model_name}/checkpoint"
+history_path = f"../history/{model_name}_sep.npy"
+weights_path = f"../models/{model_name}_sep/checkpoint"
 
 # optimizer = get_SGD_optimizer()
 optimizer = get_Adam_optimizer()
@@ -233,10 +250,10 @@ from mer.trainer import Trainer
 
 trainer = Trainer(model,
   train_batch_iter,
-  test_batch_iter,
+  test_batch_sep_iter,
   optimizer,
   simple_mse_loss,
-  epochs=3,
+  epochs=5,
   steps_per_epoch=90, # // 64 // 16 // //////     724 // 16 = 45
   valid_step=30,
   history_path=history_path,
@@ -251,6 +268,38 @@ history = trainer.train()
 from mer.utils.utils import plot_history
 
 plot_history(history_path)
+
+other_path = f"../history/{model_name}.npy"
+plot_history(other_path)
+
+
+# %%
+
+import matplotlib.pyplot as plt
+# Plot
+with open(history_path, "rb") as f:
+  [sep_epochs_loss, sep_epochs_val_loss] = np.load(f, allow_pickle=True)
+
+with open(other_path, "rb") as f:
+  [epochs_loss, epochs_val_loss] = np.load(f, allow_pickle=True)
+
+
+# %%
+
+
+print("Normal source val loss:", epochs_val_loss[3])
+print("Separated source val loss:", sep_epochs_val_loss[4])
+
+
+
+
+
+
+
+
+
+
+
 
 # %%
 

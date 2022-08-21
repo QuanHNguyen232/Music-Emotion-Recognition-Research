@@ -26,3 +26,12 @@ This is a research about music emotion recognition conducted by Alex, Quan, and 
 
 ## How to test and experiment
 `(to be implemented)`
+
+### Get the dataset to be generated
+
+1. `python ./old/wav_converter.py "./data/PMEmo/PMEmo2019/PMEmo2019/chorus" "./data/PMEmo/PMEmo2019/PMEmo2019/chorus_wav" ffmpeg`
+
+2. `python Predict.py with cfg.full_multi_instrument model_path="./checkpoints/full_multi_instrument/full_multi_instrument-134067" input_path="../data/PMEmo/PMEmo2019/PMEmo2019/chorus/" output_path="../data/PMEmo/PMEmo2019/PMEmo2019/separation/"`
+
+3. `python ./mains/convert_16_bit_depth.py ./data/PMEmo/PMEmo2019/PMEmo2019/separation ./data/PMEmo/PMEmo2019/PMEmo2019/separation_16`
+
