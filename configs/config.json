@@ -6,14 +6,17 @@
   "BATCH_SIZE": 8,
   "FREQUENCY_LENGTH": 129,
   "N_CHANNEL": 1,
+  "N_CHANNEL_SEP": 4,
   "SPECTROGRAM_TIME_LENGTH": 15502,
   "SPECTROGRAM_HALF_SECOND_LENGTH": 171,
   "SPECTROGRAM_5_SECOND_LENGTH": 1721,
   "MFCCS_TIME_LENGTH": 3876,
   "LEARNING_RATE": 1e-4,
   "SOUND_EXTENSION": ".wav",
+  "MP3_EXTENSION": ".mp3",
   "MIN_TIME_END_POINT": 15,
   "AUDIO_FOLDER": "../data/PMEmo/PMEmo2019/PMEmo2019/chorus_wav",
+  "SEP_AUDIO_FOLDER": "../data/PMEmo/PMEmo2019/PMEmo2019/separation_16",
   "ANNOTATION_SONG_LEVEL": [
     "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations.csv",
     "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations_std.csv"
