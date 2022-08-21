@@ -102,7 +102,107 @@ train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 # plot_wave_4(waveforms, second_length=40)
 
 
+#%%
+def train_sep_datagen():
+  """ Predicting valence mean and arousal mean
+  """
+  pointer = 0
+  while True:
+    # Reset pointer
+    if pointer >= len(train_df):
+      pointer = 0
 
+    row = train_df.loc[pointer]
+    song_id = row["musicId"]
+    arousal_mean = float(row["Arousal(mean)"])
+    valence_mean = float(row["Valence(mean)"])
+    
+    # TODO: HOw are we gonna integrate valence and arousal std?
+    arousal_std = float(row["Arousal(std)"])
+    valence_std = float(row["Valence(std)"])
+        
+    label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
+    song_dir = os.path.join(GLOBAL_CONFIG.SEP_AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.MP3_EXTENSION)
+
+    waveform_list = []
+    spectrogram_list = []
+    for wav_file in os.listdir(song_dir):
+      song_path = os.path.join(song_dir, wav_file)
+      
+      sep_waveform = load_wave_data(song_path)
+      sep_spectrogram_feat = extract_spectrogram_features(sep_waveform)
+      sep_waveform = preprocess_waveforms(sep_waveform)
+
+      waveform_list.append(sep_waveform)
+      spectrogram_list.append(sep_spectrogram_feat)
+    
+    
+    waveforms = tf.concat(waveform_list, axis=1)  # shape=(x, 1) --> (x, 4)
+    spectrograms = tf.concat(spectrogram_list, axis=2)  # shape=(h, w, 1) --> (h, w, 4)
+
+    # Update pointer
+    pointer += 1
+    yield (waveforms, spectrograms, label)
+
+def test_sep_datagen():
+  """ Predicting valence mean and arousal mean
+  """
+  pointer = 0
+  while True:
+    # Reset pointer
+    if pointer >= len(test_df):
+      pointer = 0
+
+    row = test_df.loc[pointer]
+    song_id = row["musicId"]
+    valence_mean = float(row["Valence(mean)"])
+    arousal_mean = float(row["Arousal(mean)"])
+    arousal_std = float(row["Arousal(std)"])
+    valence_std = float(row["Valence(std)"])
+    label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
+
+    song_dir = os.path.join(GLOBAL_CONFIG.SEP_AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.MP3_EXTENSION)
+    waveform_list = []
+    spectrogram_list = []
+    for wav_file in os.listdir(song_dir):
+      song_path = os.path.join(song_dir, wav_file)
+      
+      sep_waveform = load_wave_data(song_path)
+      sep_spectrogram_feat = extract_spectrogram_features(sep_waveform)
+      sep_waveform = preprocess_waveforms(sep_waveform)
+
+      waveform_list.append(sep_waveform)
+      spectrogram_list.append(sep_spectrogram_feat)
+    
+    waveforms = tf.concat(waveform_list, axis=1)  # shape=(x, 1) --> (x, 4)
+    spectrograms = tf.concat(spectrogram_list, axis=2)  # shape=(h, w, 1) --> (h, w, 4)
+
+    pointer += 1
+    yield (waveforms, spectrograms, label)
+
+# Create train dataset on seperated 16bit
+train_sep_dataset = tf.data.Dataset.from_generator(
+  train_sep_datagen,
+  output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(4), dtype=tf.float32)
+  )
+)
+train_batch_sep_dataset = train_sep_datagen.batch(GLOBAL_CONFIG.BATCH_SIZE)
+train_batch_iter = iter(train_batch_sep_dataset)
+
+# Create test dataset on seperated 16bit
+test_sep_dataset = tf.data.Dataset.from_generator(
+  test_sep_datagen,
+  output_signature=(
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
+    tf.TensorSpec(shape=(4), dtype=tf.float32)
+  )
+)
+test_batch_sep_dataset = test_sep_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+test_batch_sep_iter = iter(test_batch_sep_dataset)
 # %%
 
 def train_datagen():
