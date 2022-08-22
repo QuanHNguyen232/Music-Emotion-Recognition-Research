@@ -355,19 +355,66 @@ else:
   
 df_kl_data
 
+
 # %%
 
+kl_all_mixed = df_kl_data.iloc[:, 1]
+kl_all_sep = df_kl_data.iloc[:, 2]
+
+# %%
+
+# Show only history gram
 
 plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
 
 # Plot Histogram on x
-plt.hist(df_kl_data.iloc[:, 1], bins=100)
-plt.gca().set(title='KL Divergence Distribution of Mixed data', ylabel='Frequency');
-
-# %%
+plt.hist(kl_all_mixed, bins=30)
+plt.gca().set(title='KL Divergence Distribution of Mixed data', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
 
 plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
 
 # Plot Histogram on x
-plt.hist(df_kl_data.iloc[:, 2], bins=100)
-plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency');
+plt.hist(kl_all_sep, bins=30)
+plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
+
+# %%
+
+# Show only continuous distribution
+import numpy as np
+
+# Create dataframe with values and probabilities
+var_range = 30
+probabilities, values = np.histogram(kl_all_mixed, bins=int(var_range), density=False)
+
+# Plot probability distribution like in your example
+df = pd.DataFrame(dict(prob=probabilities, value=values[:-1]))
+df.plot.line(x='value', y='prob')
+
+probabilities1, values1 = np.histogram(kl_all_sep, bins=int(var_range), density=False)
+
+df = pd.DataFrame(dict(prob=probabilities1, value=values1[:-1]))
+df.plot.line(x='value', y='prob')
+
+
+# %%
+
+# show merged distribution
+
+import seaborn as sns    # v 0.11.0
+sns.histplot(data=kl_all_mixed, bins=30, alpha= 0.2, kde=True,
+             edgecolor='white', linewidth=0.5,
+             line_kws=dict(color='green', alpha=1,
+                           linewidth=1.5, label='KDE_all_mixed'))
+
+sns.histplot(data=kl_all_sep, bins=30, alpha= 0.2, kde=True,
+             edgecolor='blue', linewidth=0.5,
+             line_kws=dict(color='red', alpha=1,
+                           linewidth=1.5, label='KDE_all_sep'))
+
+
+plt.gca().get_lines()[0].set_color('black') # manually edit line color due to bug in sns v 0.11.0
+plt.legend(frameon=False)
+
+# TODO: density=True ?
