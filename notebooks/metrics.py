@@ -363,6 +363,11 @@ kl_all_sep = df_kl_data.iloc[:, 2]
 
 # %%
 
+"""
+All plotting methods is taken and editted from:
+  https://stackoverflow.com/questions/58989973/how-to-smooth-a-probability-distribution-plot-in-python
+"""
+
 # Show only history gram
 
 plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
