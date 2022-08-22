@@ -9,3 +9,4 @@ pandas
 munch
 pydub
 protobuf==3.20.0
+seaborn==0.11.0
