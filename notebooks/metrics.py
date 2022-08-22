@@ -338,4 +338,11 @@ print(f"Mean KL Divergence of separated source: {tf.reduce_mean(kl_all_sep)}")
 print(f"Sum KL Divergence of mixed source: {tf.reduce_sum(kl_all_mixed)}")
 print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
 
+# %%
 
+# Export all kl data
+
+all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+df_kl_data.to_csv("./kl_result.csv", index=False)
