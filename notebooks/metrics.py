@@ -5,6 +5,7 @@ import os
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
+%matplotlib inline
 import pandas as pd
 
 import tensorflow as tf
@@ -340,9 +341,33 @@ print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
 
 # %%
 
-# Export all kl data
+kl_data_path = "./kl_result.csv"
 
-all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
-kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
-df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
-df_kl_data.to_csv("./kl_result.csv", index=False)
+# Export all kl data
+if not os.path.exists(kl_data_path):
+  all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+  kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+  df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+  df_kl_data.to_csv("./kl_result.csv", index=False)
+else:
+  # and load code
+  df_kl_data = pd.read_csv(kl_data_path)
+  
+df_kl_data
+
+# %%
+
+
+plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
+
+# Plot Histogram on x
+plt.hist(df_kl_data.iloc[:, 1], bins=100)
+plt.gca().set(title='KL Divergence Distribution of Mixed data', ylabel='Frequency');
+
+# %%
+
+plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
+
+# Plot Histogram on x
+plt.hist(df_kl_data.iloc[:, 2], bins=100)
+plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency');
