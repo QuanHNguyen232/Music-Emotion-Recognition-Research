@@ -155,10 +155,10 @@ weights_mixed_path = f"../models/{model_name}/checkpoint"
 model_mixed.load_weights(weights_mixed_path)
 
 # Model sep
-model_sep = Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP))
-history_sep_path = f"../history/{model_name}_sep.npy"
-weights_sep_path = f"../models/{model_name}_sep/checkpoint"
-model_sep.load_weights(weights_sep_path)
+# model_sep = Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP))
+# history_sep_path = f"../history/{model_name}_sep.npy"
+# weights_sep_path = f"../models/{model_name}_sep/checkpoint"
+# model_sep.load_weights(weights_sep_path)
 
 
 
@@ -221,17 +221,17 @@ result_df
 
 # %%
 
+# A partilular row's stats
 row = result_df.iloc[0]
+gt_stats: tf.Tensor = tf.convert_to_tensor(row.values[1:5])
+mixed_stats: tf.Tensor = tf.convert_to_tensor(row.values[5:9])
+sep_stats: tf.Tensor = tf.convert_to_tensor(row.values[9:13])
 
-
-# %%
-
-gt_stats: tf.Tensor = row.values[1:5]
-
-pred_stats: tf.Tensor
-
-
-
+# All stats
+all_song_id = result_df.iloc[:, 0]
+gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
 
 # %%
 
@@ -248,7 +248,8 @@ def compute_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.floa
   Returns:
     tf.float32:the KL Divergence of the two distribution
   """
-  assert len(gt_stats.shape) == 4, "Error in gt shape"
+  assert gt_stats.shape == (4,), "Error in gt_stats shape"
+  assert pred_stats.shape == (4,), "Error in pred_stats shape"
 
   [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std] = pred_stats
   [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std] = gt_stats
@@ -262,33 +263,79 @@ def compute_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.floa
   gt_mean = tf.convert_to_tensor([[gt_valence_mean, gt_arousal_mean]])
 
   kl_divergence = 0.5 * (
-    tf.transpose(gt_mean - pred_mean, perm=[1, 0]) @ gt_corvariance_mat_inv \
-      @ (gt_mean - pred_mean) + \
+    (gt_mean - pred_mean) @ gt_corvariance_mat_inv \
+      @ tf.transpose(gt_mean - pred_mean, perm=[1, 0]) + \
         tf.linalg.trace(gt_corvariance_mat_inv @ pred_corvariance_mat) - \
-          tf.math.log(tf.linalg.det(pred_corvariance_mat) / gt_corvariance_mat) - 2
+          tf.math.log(tf.linalg.det(pred_corvariance_mat) / tf.linalg.det(gt_corvariance_mat)) - 2
   )
 
-  return kl_divergence
+  return tf.squeeze(kl_divergence)
+
+def compute_all_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.float32:
+  """ Compute the KL Divergence of the two distribution based on their univariates
+  KL Divergence applies in n-dimension with the formula being proven here:
+    https://statproofbook.github.io/P/mvn-kl.html
+  In this context we refer 1 to pred and 2 to ground truth. E.g: E1 is the covariance matrix of the prediction
+
+  Args:
+    gt_stats (tf.Tensor): [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
+    pred_stats (tf.Tensor): [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
+
+  Returns:
+    tf.float32:the KL Divergence of the two distribution
+  """
+
+  pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std = pred_stats[:,0], pred_stats[:,1], pred_stats[:,2], pred_stats[:,3]
+  gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std = gt_stats[:,0], gt_stats[:,1], gt_stats[:,2], gt_stats[:,3]
+
+  pred_corvariance_mat = tf.concat([
+    tf.concat([tf.square(pred_valence_std[..., tf.newaxis]), tf.zeros_like(pred_valence_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :],
+    tf.concat([tf.zeros_like(pred_arousal_std[..., tf.newaxis]), tf.square(pred_arousal_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :]
+  ], axis=-2)
+
+  gt_corvariance_mat = tf.concat([
+    tf.concat([tf.square(gt_valence_std[..., tf.newaxis]), tf.zeros_like(gt_valence_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :],
+    tf.concat([tf.zeros_like(gt_arousal_std[..., tf.newaxis]), tf.square(gt_arousal_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :]
+  ], axis=-2)
+
+  gt_corvariance_mat_inv = tf.linalg.inv(gt_corvariance_mat)
+
+  pred_mean = tf.concat([pred_valence_mean[..., tf.newaxis], pred_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
+  gt_mean = tf.concat([gt_valence_mean[..., tf.newaxis], gt_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
+
+  constant_shape = (gt_stats.shape[0], 1, 1)
+
+  kl_divergence = 0.5 * (
+    (gt_mean - pred_mean) @ gt_corvariance_mat_inv \
+      @ tf.transpose(gt_mean - pred_mean, perm=[0, 2, 1]) + \
+        tf.linalg.trace(gt_corvariance_mat_inv @ pred_corvariance_mat)[..., tf.newaxis, tf.newaxis] - \
+          tf.math.log(tf.linalg.det(pred_corvariance_mat) / tf.linalg.det(gt_corvariance_mat))[..., tf.newaxis, tf.newaxis] - \
+            tf.broadcast_to(2.0, shape=constant_shape)
+  )
+  
+  return tf.squeeze(kl_divergence)
 
 # %%
 
+# kl_mixed = compute_kl_divergence(gt_stats, mixed_stats)
+# kl_sep = compute_kl_divergence(gt_stats, sep_stats)
+# print(f"Ground truth stats: {gt_stats}")
+# print(f"Mixed source prediction stats: {mixed_stats}")
+# print(f"Sep source prediction stats: {sep_stats}")
+# print(f"KL-Divergence of mixed vs ground truth: {kl_mixed}")
+# print(f"KL-Divergence of sep vs ground truth: {kl_sep}")
 
 
-
+kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
 
 
 # %%
 
-# test inverse matriix
+print(f"Mean KL Divergence of mixed source: {tf.reduce_mean(kl_all_mixed)}")
+print(f"Mean KL Divergence of separated source: {tf.reduce_mean(kl_all_sep)}")
 
-a = tf.convert_to_tensor([[4.0, 0],[0, 6.0]])
-b = tf.linalg.inv(a)
-print(b)
+print(f"Sum KL Divergence of mixed source: {tf.reduce_sum(kl_all_mixed)}")
+print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
 
-# %%
 
-c = tf.convert_to_tensor([4.0, 0,0, 6.0])
-[gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std] = c
-
-# %%
-gt_arousal_mean
