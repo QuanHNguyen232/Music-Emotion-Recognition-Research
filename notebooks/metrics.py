@@ -279,8 +279,8 @@ def compute_all_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.
   In this context we refer 1 to pred and 2 to ground truth. E.g: E1 is the covariance matrix of the prediction
 
   Args:
-    gt_stats (tf.Tensor): [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
-    pred_stats (tf.Tensor): [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
+    gt_stats (tf.Tensor): (n_songs, 4) with 4: [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
+    pred_stats (tf.Tensor): (n_songs, 4) with 4: [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
 
   Returns:
     tf.float32:the KL Divergence of the two distribution
@@ -355,19 +355,82 @@ else:
   
 df_kl_data
 
-# %%
-
-
-plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
-
-# Plot Histogram on x
-plt.hist(df_kl_data.iloc[:, 1], bins=100)
-plt.gca().set(title='KL Divergence Distribution of Mixed data', ylabel='Frequency');
 
 # %%
 
-plt.rcParams.update({'figure.figsize':(7,5), 'figure.dpi':100})
+kl_all_mixed = df_kl_data.iloc[:, 1]
+kl_all_sep = df_kl_data.iloc[:, 2]
+
+# %%
+
+"""
+All plotting methods is taken and editted from:
+  https://stackoverflow.com/questions/58989973/how-to-smooth-a-probability-distribution-plot-in-python
+"""
+
+# Show only history gram
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams.update({'figure.figsize':(7,3.5), 'figure.dpi':100})
 
 # Plot Histogram on x
-plt.hist(df_kl_data.iloc[:, 2], bins=100)
-plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency');
+plt.hist(kl_all_mixed, bins=40)
+plt.gca().set(title='KL Divergence Distribution of Mixed data', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
+
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams.update({'figure.figsize':(7,3.5), 'figure.dpi':100})
+
+# Plot Histogram on x
+plt.hist(kl_all_sep, bins=40)
+plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
+
+# %%
+
+# Show only continuous distribution
+import numpy as np
+
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams["figure.figsize"] = [7.50, 3.50]
+plt.rcParams["figure.autolayout"] = True
+
+# Create dataframe with values and probabilities
+var_range = 40
+probabilities, values = np.histogram(kl_all_mixed, bins=int(var_range), density=False)
+
+# Plot probability distribution like in your example
+df = pd.DataFrame(dict(prob=probabilities, value=values[:-1]))
+# df.plot.line(x='value', y='prob')
+plt.plot(df.value, df.prob, label="Mixed Data")
+plt.gca().set(title='KL Divergence Distribution of training with both dataset', ylabel='Frequency', xlabel="KL Divergence")
+
+probabilities1, values1 = np.histogram(kl_all_sep, bins=int(var_range), density=False)
+
+df = pd.DataFrame(dict(prob=probabilities1, value=values1[:-1]))
+plt.plot(df.value, df.prob, label="Separated Data")
+# plt.gca().set(title='KL Divergence Distribution of Separated data', ylabel='Frequency', xlabel="KL Divergence")
+plt.legend()
+plt.show()
+
+# %%
+
+# show merged distribution
+
+import seaborn as sns    # v 0.11.0
+sns.histplot(data=kl_all_mixed, bins=30, alpha= 0.2, kde=True,
+             edgecolor='white', linewidth=0.5,
+             line_kws=dict(color='green', alpha=1,
+                           linewidth=1.5, label='KDE_all_mixed'))
+
+sns.histplot(data=kl_all_sep, bins=30, alpha= 0.2, kde=True,
+             edgecolor='blue', linewidth=0.5,
+             line_kws=dict(color='red', alpha=1,
+                           linewidth=1.5, label='KDE_all_sep'))
+
+
+plt.gca().get_lines()[0].set_color('black') # manually edit line color due to bug in sns v 0.11.0
+plt.legend(frameon=False)
+
+# TODO: density=True ?
+
+# %%

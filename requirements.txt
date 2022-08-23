@@ -9,5 +9,6 @@ pandas
 munch
 pydub
 protobuf==3.20.0
+seaborn==0.11.0
 opensmile>=2.4.1
 scikit-learn
