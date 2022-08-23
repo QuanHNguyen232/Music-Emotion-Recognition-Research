@@ -173,7 +173,8 @@ columns = [
   "sep_arousal_std"
 ]
 
-csv_path = "./result.csv"
+# csv_path = "./result.csv" ## Uncomment this to process the reuslt from the cnn model
+csv_path = "./result_rf.csv" ## Uncomment this to process the result from the random forest model
 
 # method that use a model to infer and return prediction data
 def infer(test_data_iter, model):
@@ -341,14 +342,15 @@ print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
 
 # %%
 
-kl_data_path = "./kl_result.csv"
+# kl_data_path = "./kl_result.csv"
+kl_data_path = "./kl_rf_result.csv"
 
 # Export all kl data
 if not os.path.exists(kl_data_path):
   all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
   kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
   df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
-  df_kl_data.to_csv("./kl_result.csv", index=False)
+  df_kl_data.to_csv(kl_data_path, index=False)
 else:
   # and load code
   df_kl_data = pd.read_csv(kl_data_path)
@@ -433,4 +435,4 @@ plt.legend(frameon=False)
 
 # TODO: density=True ?
 
-# %%
+

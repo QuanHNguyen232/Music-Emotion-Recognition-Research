@@ -82,18 +82,3 @@ def sep_feat_extractor(dir_path: str, sep_type: str) -> pd.DataFrame:
     print(results.shape)
     
     return results
-
-if __name__ == '__main__':
-
-    # extract mixed .wav files
-    results = mixed_feat_extractor('../data/PMEmo/PMEmo2019/PMEmo2019/chorus_wav/')
-    results.to_csv('chorus_wav_static_feat.csv', index=False)
-
-    # extract separated .wav files
-    sep_types = ['bass', 'drums', 'other', 'vocals']    # result from pretrained Wave-U-Net
-    for sep_type in sep_types:
-        results = sep_feat_extractor('../data/PMEmo/PMEmo2019/PMEmo2019/separation_16', sep_type)
-        results.to_csv(f'sep_{sep_type}_static_feat.csv', index=False)
-
-
-    print('Done static_feat_extractor.py')
