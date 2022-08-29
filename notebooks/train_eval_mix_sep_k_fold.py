@@ -435,7 +435,7 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
   sep_song_id_vec, sep_label_vec, sep_pred_vec = infer(test_batch_sep_iter, model_sep)
   song_id_vec = tf.cast(mixed_song_id_vec[..., tf.newaxis], tf.float32)
   compiled_data = tf.concat([song_id_vec, mixed_label_vec, mixed_pred_vec, sep_pred_vec], axis=-1)
-  print(compiled_data)
+  # print(compiled_data)
   result_df = pd.DataFrame(compiled_data.numpy(), columns=columns)
   result_df.to_csv(csv_path_result, index=False)
 
