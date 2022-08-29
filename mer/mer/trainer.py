@@ -97,8 +97,8 @@ class Trainer():
             # except:
             #   continue
             val_batch = next(self.test_batch_iter)
-            logits = self.model(val_batch[2], training=False)
-            val_loss = self.loss_function(val_batch[3], logits)
+            logits = self.model(val_batch[1], training=False)
+            val_loss = self.loss_function(val_batch[2], logits)
             losses.append(loss)
             epochs_val_loss.append(val_loss)
             # print(f"exmaple logits: {logits}")

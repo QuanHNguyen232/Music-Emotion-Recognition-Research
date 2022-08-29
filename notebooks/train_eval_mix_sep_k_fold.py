@@ -236,10 +236,37 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
   # test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
   test_batch_iter = iter(test_batch_dataset)
 
+  def val_datagen():
+    """ Predicting valence mean and arousal mean
+    """
+    pointer = 0
+    while True:
+      # Reset pointer
+      if pointer >= len(test_df):
+        pointer = 0
+
+      row = test_df.loc[pointer]
+      song_id = row["musicId"]
+      valence_mean = float(row["Valence(mean)"])
+      arousal_mean = float(row["Arousal(mean)"])
+      arousal_std = float(row["Arousal(std)"])
+      valence_std = float(row["Valence(std)"])
+      label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
+      song_path = os.path.join(GLOBAL_CONFIG.AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.SOUND_EXTENSION)
+
+      waveforms = load_wave_data(song_path)
+      
+      spectrogram_features = extract_spectrogram_features(waveforms)
+      
+      # Preprocessed and normalize waveforms in the end
+      waveforms = preprocess_waveforms(waveforms)
+
+      pointer += 1
+      yield (waveforms, spectrogram_features, label)
+
   val_dataset = tf.data.Dataset.from_generator(
-    test_datagen,
+    val_datagen,
     output_signature=(
-      tf.TensorSpec(shape=(), dtype=tf.int32),
       tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
       tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL), dtype=tf.float32),
       tf.TensorSpec(shape=(4), dtype=tf.float32)
@@ -274,10 +301,45 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
   test_batch_sep_dataset = test_sep_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
   test_batch_sep_iter = iter(test_batch_sep_dataset)
 
+  def val_sep_datagen():
+    """ Predicting valence mean and arousal mean
+    """
+    pointer = 0
+    while True:
+      # Reset pointer
+      if pointer >= len(test_df):
+        pointer = 0
+
+      row = test_df.loc[pointer]
+      song_id = row["musicId"]
+      valence_mean = float(row["Valence(mean)"])
+      arousal_mean = float(row["Arousal(mean)"])
+      arousal_std = float(row["Arousal(std)"])
+      valence_std = float(row["Valence(std)"])
+      label = tf.convert_to_tensor([valence_mean, arousal_mean, valence_std, arousal_std], dtype=tf.float32)
+
+      song_dir = os.path.join(GLOBAL_CONFIG.SEP_AUDIO_FOLDER, str(int(song_id)) + GLOBAL_CONFIG.MP3_EXTENSION)
+      waveform_list = []
+      spectrogram_list = []
+      for wav_file in os.listdir(song_dir):
+        song_path = os.path.join(song_dir, wav_file)
+        
+        sep_waveform = load_wave_data(song_path)
+        sep_spectrogram_feat = extract_spectrogram_features(sep_waveform)
+        sep_waveform = preprocess_waveforms(sep_waveform)
+
+        waveform_list.append(sep_waveform)
+        spectrogram_list.append(sep_spectrogram_feat)
+      
+      waveforms = tf.concat(waveform_list, axis=1)  # shape=(x, 1) --> (x, 4)
+      spectrograms = tf.concat(spectrogram_list, axis=2)  # shape=(h, w, 1) --> (h, w, 4)
+
+      pointer += 1
+      yield (waveforms, spectrograms, label)
+
   val_sep_dataset = tf.data.Dataset.from_generator(
-    test_sep_datagen,
+    val_sep_datagen,
     output_signature=(
-      tf.TensorSpec(shape=(), dtype=tf.int32),
       tf.TensorSpec(shape=(GLOBAL_CONFIG.WAVE_ARRAY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
       tf.TensorSpec(shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP), dtype=tf.float32),
       tf.TensorSpec(shape=(4), dtype=tf.float32)
@@ -312,7 +374,7 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
     simple_mse_loss,
     epochs=4,
     steps_per_epoch=77, #      613 // 8 = 77
-    valid_step=10,
+    valid_step=7,
     history_path=history_mixed_path,
     weights_path=weights_mixed_path,
     save_history=True)
@@ -328,7 +390,7 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
     simple_mse_loss,
     epochs=4,
     steps_per_epoch=77, #      613 // 8 = 77
-    valid_step=10,
+    valid_step=7,
     history_path=history_sep_path,
     weights_path=weights_sep_path,
     save_history=True)
