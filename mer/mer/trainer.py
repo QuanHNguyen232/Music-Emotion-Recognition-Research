@@ -85,29 +85,29 @@ class Trainer():
           #   continue
           _, batch_x, batch_label = next(self.training_batch_iter)
           loss = self.train_step(batch_x, batch_label, self.model, self.loss_function, self.optimizer, verbose=verbose)
-          print(f"Epoch {epoch + 1} - Step {step_pointer + 1} - Loss: {loss}")
-          losses.append(loss)
-
-          if (step_pointer + 1) % self.valid_step == 0:
-            print(
-              "Training loss (for one batch) at step %d: %.4f"
-              % (step_pointer + 1, float(loss))
-            )
+          
+          if (step_pointer) % self.valid_step == 0:
+            # print(
+            #   "Training loss (for one batch) at step %d: %.4f"
+            #   % (step_pointer, float(loss))
+            # )
             # perform validation
             # try:
             #   val_batch = next(self.test_batch_iter)
             # except:
             #   continue
             val_batch = next(self.test_batch_iter)
-            logits = self.model(val_batch[1], training=False)
-            val_loss = self.loss_function(val_batch[2], logits)
-            # print(f"exmaple logits: {logits}")
-            print(f"Validation loss: {val_loss}\n-----------------")
-          if (step_pointer + 1) == self.steps_per_epoch:
-            val_batch = next(self.test_batch_iter)
-            logits = self.model(val_batch[1], training=False)
-            val_loss = self.loss_function(val_batch[2], logits)
+            logits = self.model(val_batch[2], training=False)
+            val_loss = self.loss_function(val_batch[3], logits)
+            losses.append(loss)
             epochs_val_loss.append(val_loss)
+            # print(f"exmaple logits: {logits}")
+            print(f"Epoch {epoch} - Step {step_pointer} - Loss: {loss} - Validation loss: {val_loss}")
+          # if (step_pointer) == self.steps_per_epoch:
+          #   val_batch = next(self.test_batch_iter)
+          #   logits = self.model(val_batch[1], training=False)
+          #   val_loss = self.loss_function(val_batch[2], logits)
+          #   epochs_val_loss.append(val_loss)
 
           step_pointer += 1
       epochs_loss.append(losses)

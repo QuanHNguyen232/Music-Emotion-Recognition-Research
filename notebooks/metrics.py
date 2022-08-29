@@ -38,7 +38,7 @@ from mer.utils.const import GLOBAL_CONFIG
 
 # Because the generator and some classes are based on the
 # GLOBAL_CONFIG, we have to import them after we set the config
-from mer.utils.utils import load_metadata, split_train_test, \
+from mer.utils.utils import compute_all_kl_divergence, load_metadata, split_train_test, \
   preprocess_waveforms, get_spectrogram, plot_and_play, \
   pad_waveforms, plot_wave
 from mer.model import get_rnn_model,get_rnn_model_2, Simple_CRNN_3
@@ -92,6 +92,9 @@ test_dataset = tf.data.Dataset.from_generator(
     tf.TensorSpec(shape=(4), dtype=tf.float32)
   )
 )
+val_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
+# test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
+val_batch_iter = iter(val_batch_dataset)
 test_batch_dataset = test_dataset.batch(GLOBAL_CONFIG.BATCH_SIZE)
 # test_batch_dataset = test_batch_dataset.cache().prefetch(tf.data.AUTOTUNE) # OOM error
 test_batch_iter = iter(test_batch_dataset)
@@ -156,10 +159,10 @@ weights_mixed_path = f"../models/{model_name}/checkpoint"
 model_mixed.load_weights(weights_mixed_path)
 
 # Model sep
-# model_sep = Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP))
-# history_sep_path = f"../history/{model_name}_sep.npy"
-# weights_sep_path = f"../models/{model_name}_sep/checkpoint"
-# model_sep.load_weights(weights_sep_path)
+model_sep = Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL_SEP))
+history_sep_path = f"../history/{model_name}_sep.npy"
+weights_sep_path = f"../models/{model_name}_sep/checkpoint"
+model_sep.load_weights(weights_sep_path)
 
 
 
@@ -235,87 +238,6 @@ gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
 mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
 sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
 
-# %%
-
-def compute_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.float32:
-  """ Compute the KL Divergence of the two distribution based on their univariates
-  KL Divergence applies in n-dimension with the formula being proven here:
-    https://statproofbook.github.io/P/mvn-kl.html
-  In this context we refer 1 to pred and 2 to ground truth. E.g: E1 is the covariance matrix of the prediction
-
-  Args:
-    gt_stats (tf.Tensor): [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
-    pred_stats (tf.Tensor): [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
-
-  Returns:
-    tf.float32:the KL Divergence of the two distribution
-  """
-  assert gt_stats.shape == (4,), "Error in gt_stats shape"
-  assert pred_stats.shape == (4,), "Error in pred_stats shape"
-
-  [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std] = pred_stats
-  [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std] = gt_stats
-
-  pred_corvariance_mat = tf.convert_to_tensor([[tf.square(pred_valence_std), 0], [0, tf.square(pred_arousal_std)]])
-  gt_corvariance_mat = tf.convert_to_tensor([[tf.square(gt_valence_std), 0], [0, tf.square(gt_arousal_std)]])
-
-  gt_corvariance_mat_inv = tf.linalg.inv(gt_corvariance_mat)
-
-  pred_mean = tf.convert_to_tensor([[pred_valence_mean, pred_arousal_mean]])
-  gt_mean = tf.convert_to_tensor([[gt_valence_mean, gt_arousal_mean]])
-
-  kl_divergence = 0.5 * (
-    (gt_mean - pred_mean) @ gt_corvariance_mat_inv \
-      @ tf.transpose(gt_mean - pred_mean, perm=[1, 0]) + \
-        tf.linalg.trace(gt_corvariance_mat_inv @ pred_corvariance_mat) - \
-          tf.math.log(tf.linalg.det(pred_corvariance_mat) / tf.linalg.det(gt_corvariance_mat)) - 2
-  )
-
-  return tf.squeeze(kl_divergence)
-
-def compute_all_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.float32:
-  """ Compute the KL Divergence of the two distribution based on their univariates
-  KL Divergence applies in n-dimension with the formula being proven here:
-    https://statproofbook.github.io/P/mvn-kl.html
-  In this context we refer 1 to pred and 2 to ground truth. E.g: E1 is the covariance matrix of the prediction
-
-  Args:
-    gt_stats (tf.Tensor): (n_songs, 4) with 4: [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
-    pred_stats (tf.Tensor): (n_songs, 4) with 4: [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
-
-  Returns:
-    tf.float32:the KL Divergence of the two distribution
-  """
-
-  pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std = pred_stats[:,0], pred_stats[:,1], pred_stats[:,2], pred_stats[:,3]
-  gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std = gt_stats[:,0], gt_stats[:,1], gt_stats[:,2], gt_stats[:,3]
-
-  pred_corvariance_mat = tf.concat([
-    tf.concat([tf.square(pred_valence_std[..., tf.newaxis]), tf.zeros_like(pred_valence_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :],
-    tf.concat([tf.zeros_like(pred_arousal_std[..., tf.newaxis]), tf.square(pred_arousal_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :]
-  ], axis=-2)
-
-  gt_corvariance_mat = tf.concat([
-    tf.concat([tf.square(gt_valence_std[..., tf.newaxis]), tf.zeros_like(gt_valence_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :],
-    tf.concat([tf.zeros_like(gt_arousal_std[..., tf.newaxis]), tf.square(gt_arousal_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :]
-  ], axis=-2)
-
-  gt_corvariance_mat_inv = tf.linalg.inv(gt_corvariance_mat)
-
-  pred_mean = tf.concat([pred_valence_mean[..., tf.newaxis], pred_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
-  gt_mean = tf.concat([gt_valence_mean[..., tf.newaxis], gt_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
-
-  constant_shape = (gt_stats.shape[0], 1, 1)
-
-  kl_divergence = 0.5 * (
-    (gt_mean - pred_mean) @ gt_corvariance_mat_inv \
-      @ tf.transpose(gt_mean - pred_mean, perm=[0, 2, 1]) + \
-        tf.linalg.trace(gt_corvariance_mat_inv @ pred_corvariance_mat)[..., tf.newaxis, tf.newaxis] - \
-          tf.math.log(tf.linalg.det(pred_corvariance_mat) / tf.linalg.det(gt_corvariance_mat))[..., tf.newaxis, tf.newaxis] - \
-            tf.broadcast_to(2.0, shape=constant_shape)
-  )
-  
-  return tf.squeeze(kl_divergence)
 
 # %%
 
@@ -342,8 +264,8 @@ print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
 
 # %%
 
-# kl_data_path = "./kl_result.csv"
-kl_data_path = "./kl_rf_result.csv"
+kl_data_path = "./kl_result.csv"
+# kl_data_path = "./kl_rf_result.csv"
 
 # Export all kl data
 if not os.path.exists(kl_data_path):

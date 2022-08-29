@@ -20,5 +20,6 @@
   "ANNOTATION_SONG_LEVEL": [
     "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations.csv",
     "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/static_annotations_std.csv"
-  ]
+  ],
+  "K_FOLD_ANNOTATION_FOLDER": "../data/PMEmo/PMEmo2019/PMEmo2019/annotations/k_folds"
 }
