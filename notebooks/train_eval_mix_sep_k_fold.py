@@ -440,10 +440,10 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
   result_df.to_csv(csv_path_result, index=False)
 
   # A partilular row's stats
-  row = result_df.iloc[0]
-  gt_stats: tf.Tensor = tf.convert_to_tensor(row.values[1:5])
-  mixed_stats: tf.Tensor = tf.convert_to_tensor(row.values[5:9])
-  sep_stats: tf.Tensor = tf.convert_to_tensor(row.values[9:13])
+  # row = result_df.iloc[0]
+  # gt_stats: tf.Tensor = tf.convert_to_tensor(row.values[1:5])
+  # mixed_stats: tf.Tensor = tf.convert_to_tensor(row.values[5:9])
+  # sep_stats: tf.Tensor = tf.convert_to_tensor(row.values[9:13])
 
   # All stats
   all_song_id = result_df.iloc[:, 0]
