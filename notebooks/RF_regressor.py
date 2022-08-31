@@ -2,6 +2,7 @@
 import os
 import pandas as pd
 import numpy as np
+import tensorflow as tf
 from sklearn.ensemble import RandomForestRegressor
 
 from mer.utils.const import get_config_from_json, setup_global_config
@@ -12,10 +13,12 @@ config_path = "../configs/config.json"
 config = get_config_from_json(config_path)
 feat_data_dir = '../data/PMEmo/PMEmo2019/PMEmo2019/features'
 result_dir = './results'
+kl_result_dir = "./kl_results/"
 
 ##### Workaround to setup global config ############
 setup_global_config(config, verbose=True)
 from mer.utils.const import GLOBAL_CONFIG
+from mer.utils.utils import compute_all_kl_divergence
 ##### End of Workaround #####
 
 #%%
@@ -43,7 +46,7 @@ def train_mixed_dataset(df: pd.DataFrame) -> pd.DataFrame:
     x_train_df, y_train_df, x_test_df, y_test_df = get_xy_train_test(mix_df_)
     
     # model fit -- 2m 30s
-    rf_reg = RandomForestRegressor(random_state=42)
+    rf_reg = RandomForestRegressor()
     rf_reg.fit(x_train_df, y_train_df)
     
     # predict
@@ -63,7 +66,7 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     sep_df.musicID = sep_df.musicID.astype(np.int64)
     sep_df.rename(columns={'musicID': 'song_id'}, inplace=True)
 
-    # concat all seps into 1 table (bass, drums, other, vocals)
+    # concatnate all seps into 1 table (bass, drums, other, vocals)
     for i in range(1, len(sep_csv_paths)):
         local_df = pd.read_csv(sep_csv_paths[i])
         local_df.drop(columns=['musicID'], inplace=True)
@@ -75,7 +78,7 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     x_train_df, y_train_df, x_test_df, y_test_df = get_xy_train_test(sep_df_)
 
     # model fit -- 10m 30s
-    rf_reg = RandomForestRegressor(random_state=42)
+    rf_reg = RandomForestRegressor()
     rf_reg.fit(x_train_df, y_train_df)
 
     # predict
@@ -107,4 +110,29 @@ for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
     result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
     print(f'Saved fold {fold}')
     
+
+#%% Calc KL Divergence
+for fold, file in enumerate(os.listdir(result_dir)):
+    if not file.startswith('rf'): continue
+
+    result_df = pd.read_csv(os.path.join(result_dir, file))
+    
+    result_max_len = result_df.iloc[:, 5:6].dropna().shape[0]
+
+    all_song_id = result_df.iloc[:result_max_len, 0]
+    gt_all_stats = tf.convert_to_tensor(result_df.iloc[:result_max_len, 1:5], dtype=tf.float32)
+    mix_all_stats = tf.convert_to_tensor(result_df.iloc[:result_max_len, 5:9], dtype=tf.float32)
+    sep_all_stats = tf.convert_to_tensor(result_df.iloc[:result_max_len, 9:13], dtype=tf.float32)
+
+    kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+    kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+    
+    all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+    kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+    df_kl_data = pd.DataFrame(kl_data.numpy(), columns=["song_id", "kl_mixed", "kl_sep"])
+    df_kl_data.to_csv(os.path.join(kl_result_dir, f'kl_{file}'), index=False)
+
+    print(f'Run {file}')
+
+#%% Export Figs
 
