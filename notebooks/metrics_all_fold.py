@@ -50,36 +50,22 @@ plt.rcParams.update({'figure.figsize':(7,3.5), 'figure.dpi':100})
 n_bins = 30
 colors = ['blue', 'orange']
 label = ["Mixed Data", "Separate Data"]
-for fold, fname in enumerate(os.listdir(kl_data_folder)):
+for fold in range(10):
 
-    df_kl_data = pd.read_csv(f"./kl_results/kl_result_fold_{fold}.csv")
-    all_song_id = df_kl_data.iloc[:, 0]
-    kl_all_mixed = df_kl_data.iloc[:, 1]
-    kl_all_sep = df_kl_data.iloc[:, 2]
-    kl_all_mix_sep = df_kl_data.iloc[:, 1:]
+  df_kl_data = pd.read_csv(f"./kl_results/kl_rf_result_fold_{fold}.csv")
+  all_song_id = df_kl_data.iloc[:, 0]
+  kl_all_mixed = df_kl_data.iloc[:, 1]
+  kl_all_sep = df_kl_data.iloc[:, 2]
+  kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-    # print(f"Mean KL Divergence of mixed source: {tf.reduce_mean(kl_all_mixed)}")
-    # print(f"Mean KL Divergence of separated source: {tf.reduce_mean(kl_all_sep)}")
-    # print(f"Sum KL Divergence of mixed source: {tf.reduce_sum(kl_all_mixed)}")
-    # print(f"Sum KL Divergence of separated source: {tf.reduce_sum(kl_all_sep)}")
+  # Plot Histogram on x
+  plt.hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
+  plt.legend(prop={"size": 10})
+  plt.gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+  # plt.show()
 
-    # fig, axes = plt.subplots(nrows=2, ncols=5)
-
-    
-    # axes[0][0].hist(kl_all_mix_sep, n_bins, density=True, histtype='bar', color=colors, label=colors)
-    # axes[0][0].legend(prop={'size': 10})
-    # axes[0][0].set_title('KL Divergence Distribution Frequency Comparison')
-
-    # plt.show()
-
-    # Plot Histogram on x
-    plt.hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
-    plt.legend(prop={"size": 10})
-    plt.gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
-    # plt.show()
-
-    plt.savefig(os.path.join(kl_figs_folder, f"kl_fold_{fold}.png"))
-    plt.show()
+  plt.savefig(os.path.join(kl_figs_folder, f"kl_rf_fold_{fold}.png"))
+  plt.show()
 
 
 
