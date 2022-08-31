@@ -169,11 +169,10 @@ model_sep.load_weights(weights_sep_path)
 # %%
 
 columns = [
-  "song_id", "gt_valence_mean", "gt_arousal_mean",
-  "gt_valence_std", "gt_arousal_std", "mixed_valence_mean", 
-  "mixed_arousal_mean", "mixed_valence_std", "mixed_arousal_std",
-  "sep_valence_mean", "sep_arousal_mean", "sep_valence_std",
-  "sep_arousal_std"
+  "song_id",
+  "gt_valence_mean", "gt_arousal_mean", "gt_valence_std", "gt_arousal_std",
+  "mixed_valence_mean", "mixed_arousal_mean", "mixed_valence_std", "mixed_arousal_std",
+  "sep_valence_mean", "sep_arousal_mean", "sep_valence_std", "sep_arousal_std"
 ]
 
 # csv_path = "./result.csv" ## Uncomment this to process the reuslt from the cnn model

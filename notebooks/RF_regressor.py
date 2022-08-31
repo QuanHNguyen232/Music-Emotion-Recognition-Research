@@ -63,6 +63,7 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     sep_df.musicID = sep_df.musicID.astype(np.int64)
     sep_df.rename(columns={'musicID': 'song_id'}, inplace=True)
 
+    # concat all seps into 1 table (bass, drums, other, vocals)
     for i in range(1, len(sep_csv_paths)):
         local_df = pd.read_csv(sep_csv_paths[i])
         local_df.drop(columns=['musicID'], inplace=True)
@@ -83,16 +84,19 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     return sep_result_df
 
 #%% Train by folds
-for i, fold in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
+for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
+    print(f'Working on fold {fold}', end='\t')
+
     # load metadata
-    df = pd.read_csv(os.path.join(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER, fold))
+    df = pd.read_csv(os.path.join(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER, file))
     new_col_name = {'musicId':          'song_id',
-                    'Arousal(mean)':    'gt_arousal_mean',
                     'Valence(mean)':    'gt_valence_mean',
-                    'Arousal(std)':     'gt_arousal_std',
-                    'Valence(std)':     'gt_valence_std'
+                    'Arousal(mean)':    'gt_arousal_mean',
+                    'Valence(std)':     'gt_valence_std',
+                    'Arousal(std)':     'gt_arousal_std'
                     }
     df.rename(columns=new_col_name, inplace=True)
+    df = df[['song_id', 'gt_valence_mean', 'gt_arousal_mean', 'gt_valence_std', 'gt_arousal_std']]  # swap col position to match with template
 
     # train RF models
     mixed_result_df = train_mixed_dataset(df)
@@ -100,9 +104,7 @@ for i, fold in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
     
     # save result    
     result_df_ = pd.concat([df, mixed_result_df, sep_result_df], axis=1)
-    result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{i}.csv'), index=False)
-    print(f'Saved fold {i}')
+    result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
+    print(f'Saved fold {fold}')
     
-    # 8/30: run 1 folds
-    if i==0: break
 
