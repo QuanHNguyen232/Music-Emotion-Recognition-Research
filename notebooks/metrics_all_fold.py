@@ -67,6 +67,69 @@ for fold in range(10):
   plt.savefig(os.path.join(kl_figs_folder, f"kl_rf_fold_{fold}.png"))
   plt.show()
 
+# %%
+
+# Plot all
+
+
+# kl_data_path = "./kl_results/kl_result_fold_9.csv"
+# kl_data_folder = "./kl_results/"
+kl_figs_folder = "figs"
+os.makedirs(kl_figs_folder, exist_ok=True)
+# Show only history gram
+# plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams.update({'figure.figsize':(6,4), 'figure.dpi':100})
+n_bins = 40
+colors = ['blue', 'orange']
+label = ["Mixed Data", "Separate Data"]
+
+plt.figure()
+fig, axes = plt.subplots(5, 4)
+
+for fold in range(10):
+
+  df_kl_data = pd.read_csv(f"./kl_results/kl_result_fold_{fold}.csv")
+  all_song_id = df_kl_data.iloc[:, 0]
+  kl_all_mixed = df_kl_data.iloc[:, 1]
+  kl_all_sep = df_kl_data.iloc[:, 2]
+  kl_all_mix_sep = df_kl_data.iloc[:, 1:]
+
+  row = fold // 4
+  col = fold % 4
+
+  # Plot Histogram on x
+  axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
+  # axes[row, col].legend(prop={"size": 10})
+  # axes[row, col].gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+  # plt.show()
+
+  # plt.savefig(os.path.join(kl_figs_folder, f"kl_rf_fold_{fold}.png"))
+
+for fold in range(10):
+
+  df_kl_data = pd.read_csv(f"./kl_results/kl_rf_result_fold_{fold}.csv")
+  all_song_id = df_kl_data.iloc[:, 0]
+  kl_all_mixed = df_kl_data.iloc[:, 1]
+  kl_all_sep = df_kl_data.iloc[:, 2]
+  kl_all_mix_sep = df_kl_data.iloc[:, 1:]
+
+  row = (10 + fold) // 4
+  col = (10 + fold) % 4
+
+  # Plot Histogram on x
+  axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
+  # axes[row, col].legend(prop={"size": 10})
+  # axes[row, col].gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+  # plt.show()
+
+  # plt.savefig(os.path.join(kl_figs_folder, f"kl_rf_fold_{fold}.png"))
+    
+
+# plt.legend(prop={"size": 10})
+# plt.gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
+
+
 
 
 # %%
