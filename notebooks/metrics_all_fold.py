@@ -78,13 +78,13 @@ kl_figs_folder = "figs"
 os.makedirs(kl_figs_folder, exist_ok=True)
 # Show only history gram
 # plt.rcParams['figure.facecolor'] = 'white'
-plt.rcParams.update({'figure.figsize':(6,4), 'figure.dpi':100})
+# plt.rcParams.update({'figure.figsize':(6,4), 'figure.dpi':100})
 n_bins = 40
 colors = ['blue', 'orange']
 label = ["Mixed Data", "Separate Data"]
 
 plt.figure()
-fig, axes = plt.subplots(5, 4)
+fig, axes = plt.subplots(4, 5, figsize=(20, 10))
 
 for fold in range(10):
 
@@ -94,8 +94,8 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  row = fold // 4
-  col = fold % 4
+  row = fold // 5
+  col = fold % 5
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -113,8 +113,8 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  row = (10 + fold) // 4
-  col = (10 + fold) % 4
+  row = (10 + fold) // 5
+  col = (10 + fold) % 5
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -127,6 +127,8 @@ for fold in range(10):
 
 # plt.legend(prop={"size": 10})
 # plt.gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+plt.tight_layout()
+
 plt.show()
 
 
