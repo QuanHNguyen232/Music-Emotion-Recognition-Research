@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from mer.utils.utils import compute_all_kl_divergence
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -38,9 +39,51 @@ from mer.utils.const import GLOBAL_CONFIG
 
 # %%
 
+# Export all kl results
+for fold in range(10):
+  result_file = f"./results/result_fold_{fold}.csv"
+  kl_data_path = f"./kl_results/kl_result_fold_{fold}.csv"
+  result_df = pd.read_csv(result_file)
+  # All stats
+  all_song_id = result_df.iloc[:, 0]
+  gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+  mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+  sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
+
+  kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+  kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+
+  all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+  kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+  df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+  df_kl_data.to_csv(kl_data_path, index=False)
+
+# Export all kl results
+for fold in range(10):
+  result_file = f"./results/rf_result_fold_{fold}.csv"
+  kl_data_path = f"./kl_results/kl_rf_result_fold_{fold}.csv"
+  result_df = pd.read_csv(result_file)
+  # All stats
+  all_song_id = result_df.iloc[:, 0]
+  gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+  mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+  sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
+
+  kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+  kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+
+  all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+  kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+  df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+  df_kl_data.to_csv(kl_data_path, index=False)
 
 
-kl_data_path = "./kl_results/kl_result_fold_9.csv"
+
+
+# %%
+
+# Save each kl results to separate images
+# kl_data_path = "./kl_results/kl_result_fold_9.csv"
 kl_data_folder = "./kl_results/"
 kl_figs_folder = "figs"
 os.makedirs(kl_figs_folder, exist_ok=True)
@@ -69,8 +112,7 @@ for fold in range(10):
 
 # %%
 
-# Plot all
-
+# Plot all Save al kl results to an images
 
 # kl_data_path = "./kl_results/kl_result_fold_9.csv"
 # kl_data_folder = "./kl_results/"

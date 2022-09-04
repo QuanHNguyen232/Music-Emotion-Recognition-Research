@@ -72,6 +72,8 @@ filenames = tf.io.gfile.glob(str(GLOBAL_CONFIG.AUDIO_FOLDER) + '/*')
 
 # df = load_metadata(GLOBAL_CONFIG.ANNOTATION_SONG_LEVEL) # This is to train on only one fold
 
+# %%
+
 # K-fold training
 for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
   print(f"---------- Procerss training and evaluating for fold {fold} -------------")
@@ -461,5 +463,41 @@ for fold, fname in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER))
   df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
   df_kl_data.to_csv(kl_data_path, index=False)
 
+
+# %%
+
+# Testing export kl reuslt and plot
+test_file = "./results/result_fold_0.csv"
+result_df = pd.read_csv(test_file)
+
+# All stats
+all_song_id = result_df.iloc[:, 0]
+gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
+
+kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+
+all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams.update({'figure.figsize':(7,3.5), 'figure.dpi':100})
+n_bins = 30
+colors = ['blue', 'orange']
+label = ["Mixed Data", "Separate Data"]
+
+all_song_id = df_kl_data.iloc[:, 0]
+kl_all_mixed = df_kl_data.iloc[:, 1]
+kl_all_sep = df_kl_data.iloc[:, 2]
+kl_all_mix_sep = df_kl_data.iloc[:, 1:]
+
+# Plot Histogram on x
+plt.hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
+plt.legend(prop={"size": 10})
+plt.gca().set(title='KL Divergence Distribution Comparison', ylabel='Frequency', xlabel="KL Divergence")
+plt.show()
 
 
