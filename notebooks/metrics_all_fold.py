@@ -121,12 +121,15 @@ os.makedirs(kl_figs_folder, exist_ok=True)
 # Show only history gram
 # plt.rcParams['figure.facecolor'] = 'white'
 # plt.rcParams.update({'figure.figsize':(6,4), 'figure.dpi':100})
-n_bins = 40
+n_bins = 30
 colors = ['blue', 'orange']
 label = ["Mixed Data", "Separate Data"]
 
 plt.figure()
 fig, axes = plt.subplots(4, 5, figsize=(20, 10))
+
+stats_crnn = []
+stats_rf = []
 
 for fold in range(10):
 
@@ -138,6 +141,10 @@ for fold in range(10):
 
   row = fold // 5
   col = fold % 5
+
+  agg_mixed = tf.reduce_sum(kl_all_mixed).numpy()
+  agg_sep = tf.reduce_sum(kl_all_sep).numpy()
+  stats_crnn.append([agg_mixed, agg_sep])
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -154,6 +161,10 @@ for fold in range(10):
   kl_all_mixed = df_kl_data.iloc[:, 1]
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
+
+  agg_mixed = tf.reduce_sum(kl_all_mixed).numpy()
+  agg_sep = tf.reduce_sum(kl_all_sep).numpy()
+  stats_rf.append([agg_mixed, agg_sep])
 
   row = (10 + fold) // 5
   col = (10 + fold) % 5
@@ -173,7 +184,14 @@ plt.tight_layout()
 
 plt.show()
 
+# %%
 
+# Export aggregation data
+stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mixed", "sep"])
+stats_crnn_pd.to_csv("./aggs/stats_crnn.csv", index=False)
+
+stats_rf_pd = pd.DataFrame(stats_rf, columns=["mixed", "sep"])
+stats_rf_pd.to_csv("./aggs/stats_rf.csv", index=False)
 
 
 # %%
