@@ -22,6 +22,18 @@ from mer.utils.utils import compute_all_kl_divergence
 ##### End of Workaround #####
 
 #%%
+rf = RandomForestRegressor()
+print('rf.n_estimators', rf.n_estimators)
+print('rf.criterion', rf.criterion)
+print('rf.max_depth', rf.max_depth)
+print('rf.min_samples_split',rf.min_samples_split)
+print('rf.min_samples_leaf', rf.min_samples_leaf)
+print('rf.min_weight_fraction_leaf', rf.min_weight_fraction_leaf)
+print('rf.max_features', rf.max_features)
+print('rf.max_leaf_nodes', rf.max_leaf_nodes)
+print('rf.min_impurity_decrease', rf.min_impurity_decrease)
+print('rf.max_samples', rf.max_samples)
+#%%
 def get_xy_train_test(df):
     train_df, test_df = split_train_test(df, GLOBAL_CONFIG.TRAIN_RATIO)
 
