@@ -131,6 +131,11 @@ fig, axes = plt.subplots(4, 5, figsize=(20, 10))
 stats_crnn = []
 stats_rf = []
 
+def get_median(v):
+  v = tf.reshape(v, [-1])
+  m = v.get_shape()[0]//2
+  return tf.reduce_min(tf.nn.top_k(v, m, sorted=False).values)
+
 for fold in range(10):
 
   df_kl_data = pd.read_csv(f"./kl_results/kl_result_fold_{fold}.csv")
@@ -142,9 +147,11 @@ for fold in range(10):
   row = fold // 5
   col = fold % 5
 
-  agg_mixed = tf.reduce_sum(kl_all_mixed).numpy()
-  agg_sep = tf.reduce_sum(kl_all_sep).numpy()
-  stats_crnn.append([agg_mixed, agg_sep])
+  mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
+  mean_sep = tf.reduce_mean(kl_all_sep).numpy()
+  med_mixed = get_median(kl_all_mixed).numpy()
+  med_sep = get_median(kl_all_sep).numpy()
+  stats_crnn.append([mean_mixed, mean_sep, med_mixed, med_sep])
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -162,9 +169,11 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  agg_mixed = tf.reduce_sum(kl_all_mixed).numpy()
-  agg_sep = tf.reduce_sum(kl_all_sep).numpy()
-  stats_rf.append([agg_mixed, agg_sep])
+  mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
+  mean_sep = tf.reduce_mean(kl_all_sep).numpy()
+  med_mixed = get_median(kl_all_mixed).numpy()
+  med_sep = get_median(kl_all_sep).numpy()
+  stats_rf.append([mean_mixed, mean_sep, med_mixed, med_sep])
 
   row = (10 + fold) // 5
   col = (10 + fold) % 5
@@ -187,10 +196,10 @@ plt.show()
 # %%
 
 # Export aggregation data
-stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mixed", "sep"])
+stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
 stats_crnn_pd.to_csv("./aggs/stats_crnn.csv", index=False)
 
-stats_rf_pd = pd.DataFrame(stats_rf, columns=["mixed", "sep"])
+stats_rf_pd = pd.DataFrame(stats_rf, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
 stats_rf_pd.to_csv("./aggs/stats_rf.csv", index=False)
 
 

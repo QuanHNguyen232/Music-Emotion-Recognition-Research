@@ -214,7 +214,7 @@ print(out.shape)
 # model.summary()
 # model_name = "rnn_2"
 
-model = Simple_CRNN_3(input_shape=in_spec.shape[1:])
+model = Simple_CRNN_3(input_shape=(GLOBAL_CONFIG.SPECTROGRAM_TIME_LENGTH, GLOBAL_CONFIG.FREQUENCY_LENGTH, GLOBAL_CONFIG.N_CHANNEL))
 model.summary()
 model_name = "crnn_3"
 
