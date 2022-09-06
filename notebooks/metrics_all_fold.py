@@ -2,6 +2,7 @@
 
 import argparse
 import os
+from mer.utils.utils import compute_all_kl_divergence
 import numpy as np
 import librosa
 import matplotlib.pyplot as plt
@@ -38,9 +39,51 @@ from mer.utils.const import GLOBAL_CONFIG
 
 # %%
 
+# Export all kl results
+for fold in range(10):
+  result_file = f"./results/result_fold_{fold}.csv"
+  kl_data_path = f"./kl_results/kl_result_fold_{fold}.csv"
+  result_df = pd.read_csv(result_file)
+  # All stats
+  all_song_id = result_df.iloc[:, 0]
+  gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+  mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+  sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
+
+  kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+  kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+
+  all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+  kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+  df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+  df_kl_data.to_csv(kl_data_path, index=False)
+
+# Export all kl results
+for fold in range(10):
+  result_file = f"./results/rf_result_fold_{fold}.csv"
+  kl_data_path = f"./kl_results/kl_rf_result_fold_{fold}.csv"
+  result_df = pd.read_csv(result_file)
+  # All stats
+  all_song_id = result_df.iloc[:, 0]
+  gt_all_stats = tf.convert_to_tensor(result_df.iloc[:, 1:5], dtype=tf.float32)
+  mix_all_stats = tf.convert_to_tensor(result_df.iloc[:, 5:9], dtype=tf.float32)
+  sep_all_stats = tf.convert_to_tensor(result_df.iloc[:, 9:13], dtype=tf.float32)
+
+  kl_all_mixed = compute_all_kl_divergence(gt_all_stats, mix_all_stats)
+  kl_all_sep = compute_all_kl_divergence(gt_all_stats, sep_all_stats)
+
+  all_song_id_tf = tf.convert_to_tensor(all_song_id, dtype=tf.float32)[..., tf.newaxis]
+  kl_data = tf.concat([all_song_id_tf, kl_all_mixed[..., tf.newaxis], kl_all_sep[..., tf.newaxis]], axis=-1)
+  df_kl_data = pd.DataFrame(kl_data, columns=["song_id", "kl_mixed", "kl_sep"])
+  df_kl_data.to_csv(kl_data_path, index=False)
 
 
-kl_data_path = "./kl_results/kl_result_fold_9.csv"
+
+
+# %%
+
+# Save each kl results to separate images
+# kl_data_path = "./kl_results/kl_result_fold_9.csv"
 kl_data_folder = "./kl_results/"
 kl_figs_folder = "figs"
 os.makedirs(kl_figs_folder, exist_ok=True)
@@ -69,8 +112,7 @@ for fold in range(10):
 
 # %%
 
-# Plot all
-
+# Plot all Save al kl results to an images
 
 # kl_data_path = "./kl_results/kl_result_fold_9.csv"
 # kl_data_folder = "./kl_results/"
@@ -79,12 +121,20 @@ os.makedirs(kl_figs_folder, exist_ok=True)
 # Show only history gram
 # plt.rcParams['figure.facecolor'] = 'white'
 # plt.rcParams.update({'figure.figsize':(6,4), 'figure.dpi':100})
-n_bins = 40
+n_bins = 30
 colors = ['blue', 'orange']
 label = ["Mixed Data", "Separate Data"]
 
 plt.figure()
-fig, axes = plt.subplots(4, 5, figsize=(20, 10))
+fig, axes = plt.subplots(5, 4, figsize=(20, 12))
+
+stats_crnn = []
+stats_rf = []
+
+def get_median(v):
+  v = tf.reshape(v, [-1])
+  m = v.get_shape()[0]//2
+  return tf.reduce_min(tf.nn.top_k(v, m, sorted=False).values)
 
 for fold in range(10):
 
@@ -94,8 +144,14 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  row = fold // 5
-  col = fold % 5
+  row = fold // 4
+  col = fold % 4
+
+  mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
+  mean_sep = tf.reduce_mean(kl_all_sep).numpy()
+  med_mixed = get_median(kl_all_mixed).numpy()
+  med_sep = get_median(kl_all_sep).numpy()
+  stats_crnn.append([mean_mixed, mean_sep, med_mixed, med_sep])
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -113,8 +169,14 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  row = (10 + fold) // 5
-  col = (10 + fold) % 5
+  mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
+  mean_sep = tf.reduce_mean(kl_all_sep).numpy()
+  med_mixed = get_median(kl_all_mixed).numpy()
+  med_sep = get_median(kl_all_sep).numpy()
+  stats_rf.append([mean_mixed, mean_sep, med_mixed, med_sep])
+
+  row = (10 + fold) // 4
+  col = (10 + fold) % 4
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
@@ -131,7 +193,14 @@ plt.tight_layout()
 
 plt.show()
 
+# %%
 
+# Export aggregation data
+stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
+stats_crnn_pd.to_csv("./aggs/stats_crnn.csv", index=False)
+
+stats_rf_pd = pd.DataFrame(stats_rf, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
+stats_rf_pd.to_csv("./aggs/stats_rf.csv", index=False)
 
 
 # %%

@@ -263,7 +263,7 @@ def plot_history(history_path):
   
   plt.show()
 
-
+# Deprecated
 def compute_kl_divergence(pred_stats: tf.Tensor, gt_stats: tf.Tensor) -> tf.float32:
   """ Compute the KL Divergence of the two distribution based on their univariates
   KL Divergence applies in n-dimension with the formula being proven here:
@@ -301,13 +301,12 @@ def compute_kl_divergence(pred_stats: tf.Tensor, gt_stats: tf.Tensor) -> tf.floa
 
   return tf.squeeze(kl_divergence)
 
-def compute_all_kl_divergence(pred_stats: tf.Tensor, gt_stats: tf.Tensor) -> tf.float32:
+def compute_all_kl_divergence(gt_stats: tf.Tensor, pred_stats: tf.Tensor) -> tf.float32:
   """ Compute the KL Divergence of the two distribution based on their univariates
   KL Divergence applies in n-dimension with the formula being proven here:
     https://statproofbook.github.io/P/mvn-kl.html
-  In this context we refer 2 to pred and 1 to ground truth. E.g: E2 is the covariance matrix of the prediction
-  Here we actually mistaken the pred and gt, so we did a quick swap of parameters when use (E.g: compute_all_kl_divergence(gt_stats, pred_stats)
-
+  In this context we refer 1 to ground truth and 2 to pred. E.g: E2 is the covariance matrix of the prediction
+  
   Args:
     gt_stats (tf.Tensor): (n_songs, 4) with 4: [gt_valence_mean, gt_arousal_mean, gt_valence_std, gt_arousal_std]
     pred_stats (tf.Tensor): (n_songs, 4) with 4: [pred_valence_mean, pred_arousal_mean, pred_valence_std, pred_arousal_std]
@@ -329,7 +328,7 @@ def compute_all_kl_divergence(pred_stats: tf.Tensor, gt_stats: tf.Tensor) -> tf.
     tf.concat([tf.zeros_like(gt_arousal_std[..., tf.newaxis]), tf.square(gt_arousal_std[..., tf.newaxis])], axis=-1)[..., tf.newaxis, :]
   ], axis=-2)
 
-  gt_corvariance_mat_inv = tf.linalg.inv(gt_corvariance_mat)
+  pred_corvariance_mat_inv = tf.linalg.inv(pred_corvariance_mat)
 
   pred_mean = tf.concat([pred_valence_mean[..., tf.newaxis], pred_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
   gt_mean = tf.concat([gt_valence_mean[..., tf.newaxis], gt_arousal_mean[..., tf.newaxis]], axis=-1)[..., tf.newaxis, :]
@@ -337,10 +336,10 @@ def compute_all_kl_divergence(pred_stats: tf.Tensor, gt_stats: tf.Tensor) -> tf.
   constant_shape = (gt_stats.shape[0], 1, 1)
 
   kl_divergence = 0.5 * (
-    (gt_mean - pred_mean) @ gt_corvariance_mat_inv \
-      @ tf.transpose(gt_mean - pred_mean, perm=[0, 2, 1]) + \
-        tf.linalg.trace(gt_corvariance_mat_inv @ pred_corvariance_mat)[..., tf.newaxis, tf.newaxis] - \
-          tf.math.log(tf.linalg.det(pred_corvariance_mat) / tf.linalg.det(gt_corvariance_mat))[..., tf.newaxis, tf.newaxis] - \
+    (pred_mean - gt_mean) @ pred_corvariance_mat_inv \
+      @ tf.transpose(pred_mean - gt_mean, perm=[0, 2, 1]) + \
+        tf.linalg.trace(pred_corvariance_mat_inv @ gt_corvariance_mat)[..., tf.newaxis, tf.newaxis] - \
+          tf.math.log(tf.linalg.det(gt_corvariance_mat) / tf.linalg.det(pred_corvariance_mat))[..., tf.newaxis, tf.newaxis] - \
             tf.broadcast_to(2.0, shape=constant_shape)
   )
   
