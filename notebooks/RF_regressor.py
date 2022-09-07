@@ -21,7 +21,7 @@ from mer.utils.const import GLOBAL_CONFIG
 from mer.utils.utils import compute_all_kl_divergence
 ##### End of Workaround #####
 
-#%%
+#%% RF hyper-params
 rf = RandomForestRegressor()
 print('rf.n_estimators', rf.n_estimators)
 print('rf.criterion', rf.criterion)
@@ -41,9 +41,25 @@ def get_xy_train_test(df):
     x_train_df = train_df.drop(columns=labels + ['song_id'])
     y_train_df = train_df[labels]
     x_test_df = test_df.drop(columns=labels + ['song_id'])
-    y_test_df = test_df[['song_id'] + labels]
+    y_test_df = test_df[labels]
 
     return (x_train_df, y_train_df, x_test_df, y_test_df)
+
+def mse_calc(pred: np.array, gt: np.array) -> np.float:
+    '''
+    Args:
+        pred -- predicted values, shape=(samps, 4)
+        gt -- ground truth values, shape=(samps, 4)
+    
+    Ret:
+        err -- loss (float)
+    '''
+    
+    err = np.square(pred - gt) # shape=(samps, 4)
+    err = np.sum(err, axis=1) / err.shape[1] # shape=(samps,)
+
+    err = np.sum(err) / err.shape[0] # shape=(1,)
+    return err
 
 #%%
 def train_mixed_dataset(df: pd.DataFrame) -> pd.DataFrame:
@@ -62,12 +78,13 @@ def train_mixed_dataset(df: pd.DataFrame) -> pd.DataFrame:
     rf_reg.fit(x_train_df, y_train_df)
     
     # predict
-    y_hat = rf_reg.predict(x_test_df)
-    mixed_result_df = pd.DataFrame(y_hat, columns=['mixed_valence_mean','mixed_arousal_mean', 'mixed_valence_std', 'mixed_arousal_std'])
+    y_pred_train = rf_reg.predict(x_train_df)
+    y_pred_valid = rf_reg.predict(x_test_df)
+    mixed_result_df = pd.DataFrame(y_pred_valid, columns=['mixed_valence_mean','mixed_arousal_mean', 'mixed_valence_std', 'mixed_arousal_std'])
     
-    return mixed_result_df
+    return mixed_result_df, (y_pred_train, y_train_df.to_numpy(), y_pred_valid, y_test_df.to_numpy())
 
-#%%
+
 def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     # prepare sep_df_
     sep_csv_paths = [os.path.join(feat_data_dir, 'sep_bass_static_feat.csv'),
@@ -88,17 +105,26 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     # train-test split
     x_train_df, y_train_df, x_test_df, y_test_df = get_xy_train_test(sep_df_)
-
+    
     # model fit -- 10m 30s
     rf_reg = RandomForestRegressor()
     rf_reg.fit(x_train_df, y_train_df)
 
     # predict
-    y_hat = rf_reg.predict(x_test_df)
-    sep_result_df = pd.DataFrame(y_hat, columns=['sep_valence_mean','sep_arousal_mean', 'sep_valence_std', 'sep_arousal_std'])
-    return sep_result_df
+    y_pred_train = rf_reg.predict(x_train_df)
+    y_pred_valid = rf_reg.predict(x_test_df)
+    sep_result_df = pd.DataFrame(y_pred_valid, columns=['sep_valence_mean','sep_arousal_mean', 'sep_valence_std', 'sep_arousal_std'])
+
+    return sep_result_df, (y_pred_train, y_train_df.to_numpy(), y_pred_valid, y_test_df.to_numpy())
 
 #%% Train by folds
+
+mixed_train_loss_log = []
+mixed_valid_loss_log = []
+
+sep_train_loss_log = []
+sep_valid_loss_log = []
+
 for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
     print(f'Working on fold {fold}', end='\t')
 
@@ -112,16 +138,37 @@ for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
                     }
     df.rename(columns=new_col_name, inplace=True)
     df = df[['song_id', 'gt_valence_mean', 'gt_arousal_mean', 'gt_valence_std', 'gt_arousal_std']]  # swap col position to match with template
-
-    # train RF models
-    mixed_result_df = train_mixed_dataset(df)
-    sep_result_df = train_sep_dataset(df)
     
-    # save result    
+    # train RF models on MIXED data
+    mixed_result_df, mixed_pred_gt = train_mixed_dataset(df)
+    # calculate loss
+    y_pred_train, y_train_gt, y_pred_valid, y_test_gt = mixed_pred_gt
+    mixed_train_loss_log.append(mse_calc(y_pred_train, y_train_gt))
+    mixed_valid_loss_log.append(mse_calc(y_pred_valid, y_test_gt))
+    
+    # train RF models on SEP data
+    sep_result_df, sep_pred_gt = train_sep_dataset(df)
+    # calculate loss
+    y_pred_train, y_train_gt, y_pred_valid, y_test_gt = sep_pred_gt
+    sep_train_loss_log.append(mse_calc(y_pred_train, y_train_gt))
+    sep_valid_loss_log.append(mse_calc(y_pred_valid, y_test_gt))
+    
+    # # save result    
     result_df_ = pd.concat([df, mixed_result_df, sep_result_df], axis=1)
     result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
     print(f'Saved fold {fold}')
-    
+
+mixed_log_df = pd.DataFrame({'fold': np.arange(0, len(mixed_train_loss_log), 1),
+                            'train_loss': mixed_train_loss_log,
+                            'valid_loss': mixed_valid_loss_log})
+mixed_log_df.to_csv(os.path.join(result_dir, 'loss_log_mixed.csv'), index=False)
+
+
+sep_log_df = pd.DataFrame({'fold': np.arange(0, len(sep_train_loss_log), 1),
+                            'train_loss': sep_train_loss_log,
+                            'valid_loss': sep_valid_loss_log})
+sep_log_df.to_csv(os.path.join(result_dir, 'loss_log_sep.csv'), index=False)
+
 
 #%% Calc KL Divergence
 for fold, file in enumerate(os.listdir(result_dir)):
