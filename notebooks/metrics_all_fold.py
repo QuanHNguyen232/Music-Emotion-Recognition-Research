@@ -8,6 +8,7 @@ import librosa
 import matplotlib.pyplot as plt
 # %matplotlib inline
 import pandas as pd
+import scipy.stats as stats
 
 import tensorflow as tf
 print(f"Tensorflow version: {tf.__version__}")
@@ -147,12 +148,13 @@ for fold in range(10):
   row = fold // 4
   col = fold % 4
 
+  # compute stats
   mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
   mean_sep = tf.reduce_mean(kl_all_sep).numpy()
   med_mixed = get_median(kl_all_mixed).numpy()
   med_sep = get_median(kl_all_sep).numpy()
-  stats_crnn.append([mean_mixed, mean_sep, med_mixed, med_sep])
-
+  _, p_value = stats.wilcoxon(kl_all_mixed.to_numpy(), y=kl_all_sep.to_numpy())
+  stats_crnn.append([mean_mixed, mean_sep, med_mixed, med_sep, p_value])
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
   # axes[row, col].legend(prop={"size": 10})
@@ -169,11 +171,13 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
+  # Compute stats
   mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
   mean_sep = tf.reduce_mean(kl_all_sep).numpy()
   med_mixed = get_median(kl_all_mixed).numpy()
   med_sep = get_median(kl_all_sep).numpy()
-  stats_rf.append([mean_mixed, mean_sep, med_mixed, med_sep])
+  _, p_value = stats.wilcoxon(kl_all_mixed.to_numpy(), y=kl_all_sep.to_numpy())
+  stats_rf.append([mean_mixed, mean_sep, med_mixed, med_sep, p_value])
 
   row = (10 + fold) // 4
   col = (10 + fold) % 4
@@ -195,12 +199,38 @@ plt.show()
 
 # %%
 
-# Export aggregation data
-stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
+# Export statistics of kl results data
+stats_crnn_pd = pd.DataFrame(stats_crnn, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep", "wilcoxon"])
 stats_crnn_pd.to_csv("./aggs/stats_crnn.csv", index=False)
 
-stats_rf_pd = pd.DataFrame(stats_rf, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep"])
+stats_rf_pd = pd.DataFrame(stats_rf, columns=["mean_mixed", "mean_sep", "med_mixed", "med_sep", "wilcoxon"])
 stats_rf_pd.to_csv("./aggs/stats_rf.csv", index=False)
+
+
+# %%
+
+# Testing wilcoxon stats.
+
+test_kl_path = "./kl_results/kl_rf_result_fold_0.csv"
+df_kl_data = pd.read_csv(test_kl_path)
+all_song_id = df_kl_data.iloc[:, 0]
+kl_all_mixed = df_kl_data.iloc[:, 1]
+kl_all_sep = df_kl_data.iloc[:, 2]
+
+# Based on kl_results data, perform a t-test (between model_mix and model sep) 
+# for each fold each model type
+ 
+# Creating data groups
+data_group1 = kl_all_mixed.to_numpy()
+data_group2 = kl_all_sep.to_numpy()
+ 
+# Perform the two sample t-test with equal variances
+# stats.ttest_ind(a=data_group1, b=data_group2, equal_var=True)
+
+s, p = stats.wilcoxon(data_group1, y=data_group2)
+p
+
+
 
 
 # %%
