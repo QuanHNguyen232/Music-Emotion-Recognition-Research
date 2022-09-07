@@ -45,7 +45,7 @@ def get_xy_train_test(df):
 
     return (x_train_df, y_train_df, x_test_df, y_test_df)
 
-def mse_calc(pred, gt):
+def mse_calc(pred: np.array, gt: np.array) -> np.float:
     '''
     Args:
         pred -- predicted values, shape=(samps, 4)
@@ -56,7 +56,7 @@ def mse_calc(pred, gt):
     '''
     
     err = np.square(pred - gt) # shape=(samps, 4)
-    err = np.sum(err, axis=1) / err.shape[0] # shape=(samps,)
+    err = np.sum(err, axis=1) / err.shape[1] # shape=(samps,)
 
     err = np.sum(err) / err.shape[0] # shape=(1,)
     return err
@@ -84,7 +84,7 @@ def train_mixed_dataset(df: pd.DataFrame) -> pd.DataFrame:
     
     return mixed_result_df, (y_pred_train, y_train_df.to_numpy(), y_pred_valid, y_test_df.to_numpy())
 
-#%%
+
 def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     # prepare sep_df_
     sep_csv_paths = [os.path.join(feat_data_dir, 'sep_bass_static_feat.csv'),
@@ -105,7 +105,7 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
 
     # train-test split
     x_train_df, y_train_df, x_test_df, y_test_df = get_xy_train_test(sep_df_)
-
+    
     # model fit -- 10m 30s
     rf_reg = RandomForestRegressor()
     rf_reg.fit(x_train_df, y_train_df)
@@ -114,6 +114,7 @@ def train_sep_dataset(df: pd.DataFrame) -> pd.DataFrame:
     y_pred_train = rf_reg.predict(x_train_df)
     y_pred_valid = rf_reg.predict(x_test_df)
     sep_result_df = pd.DataFrame(y_pred_valid, columns=['sep_valence_mean','sep_arousal_mean', 'sep_valence_std', 'sep_arousal_std'])
+
     return sep_result_df, (y_pred_train, y_train_df.to_numpy(), y_pred_valid, y_test_df.to_numpy())
 
 #%% Train by folds
@@ -137,7 +138,7 @@ for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
                     }
     df.rename(columns=new_col_name, inplace=True)
     df = df[['song_id', 'gt_valence_mean', 'gt_arousal_mean', 'gt_valence_std', 'gt_arousal_std']]  # swap col position to match with template
-
+    
     # train RF models on MIXED data
     mixed_result_df, mixed_pred_gt = train_mixed_dataset(df)
     # calculate loss
@@ -153,20 +154,20 @@ for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
     sep_valid_loss_log.append(mse_calc(y_pred_valid, y_test_gt))
     
     # # save result    
-    # result_df_ = pd.concat([df, mixed_result_df, sep_result_df], axis=1)
-    # result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
-    # print(f'Saved fold {fold}')
+    result_df_ = pd.concat([df, mixed_result_df, sep_result_df], axis=1)
+    result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
+    print(f'Saved fold {fold}')
 
 mixed_log_df = pd.DataFrame({'fold': np.arange(0, len(mixed_train_loss_log), 1),
                             'train_loss': mixed_train_loss_log,
                             'valid_loss': mixed_valid_loss_log})
-mixed_log_df.to_csv(os.path.join(result_dir, 'mixed_loss_log.csv'), index=False)
+mixed_log_df.to_csv(os.path.join(result_dir, 'loss_log_mixed.csv'), index=False)
 
 
 sep_log_df = pd.DataFrame({'fold': np.arange(0, len(sep_train_loss_log), 1),
                             'train_loss': sep_train_loss_log,
                             'valid_loss': sep_valid_loss_log})
-sep_log_df.to_csv(os.path.join(result_dir, 'sep_loss_log.csv'), index=False)
+sep_log_df.to_csv(os.path.join(result_dir, 'loss_log_sep.csv'), index=False)
 
 
 #%% Calc KL Divergence
