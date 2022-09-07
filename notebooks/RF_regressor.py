@@ -155,6 +155,7 @@ for fold, file in enumerate(os.listdir(GLOBAL_CONFIG.K_FOLD_ANNOTATION_FOLDER)):
     
     # # save result    
     result_df_ = pd.concat([df, mixed_result_df, sep_result_df], axis=1)
+    result_df_.dropna(axis=0, how='any', inplace=True)
     result_df_.to_csv(os.path.join(result_dir, f'rf_result_fold_{fold}.csv'), index=False)
     print(f'Saved fold {fold}')
 
