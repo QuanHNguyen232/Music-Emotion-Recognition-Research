@@ -127,7 +127,7 @@ colors = ['blue', 'orange']
 label = ["Mixed Data", "Separate Data"]
 
 plt.figure()
-fig, axes = plt.subplots(5, 4, figsize=(20, 12))
+fig, axes = plt.subplots(4, 5, figsize=(20, 10))
 
 stats_crnn = []
 stats_rf = []
@@ -145,8 +145,8 @@ for fold in range(10):
   kl_all_sep = df_kl_data.iloc[:, 2]
   kl_all_mix_sep = df_kl_data.iloc[:, 1:]
 
-  row = fold // 4
-  col = fold % 4
+  row = fold // 5
+  col = fold % 5
 
   # compute stats
   mean_mixed = tf.reduce_mean(kl_all_mixed).numpy()
@@ -179,8 +179,8 @@ for fold in range(10):
   _, p_value = stats.wilcoxon(kl_all_mixed.to_numpy(), y=kl_all_sep.to_numpy())
   stats_rf.append([mean_mixed, mean_sep, med_mixed, med_sep, p_value])
 
-  row = (10 + fold) // 4
-  col = (10 + fold) % 4
+  row = (10 + fold) // 5
+  col = (10 + fold) % 5
 
   # Plot Histogram on x
   axes[row, col].hist(kl_all_mix_sep, bins=n_bins, histtype='bar', color=colors, label=label)
