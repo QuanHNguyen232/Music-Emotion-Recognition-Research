@@ -2,6 +2,8 @@
 
 This is a research about music emotion recognition conducted by Alex, Quan, and Rick.
 
+* Result folders: https://drive.google.com/drive/folders/1VDdX_ydLfx_SG5bgtZyxEzB4ob_eDv0_?usp=sharing
+
 ## Folder structure of the project
 * `/configs/`: contains global variables, setup, environment variables, training variables, and every other configurations to be plugged into the tool.
 * `/data/`: contain music emotion datasets
